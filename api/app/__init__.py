@@ -1,0 +1,1 @@
+"""Fortunia API application package."""
