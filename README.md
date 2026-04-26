@@ -1,4 +1,4 @@
-# Fortunia — Sub-agente financiero personal
+# FortunIA — Sub-agente financiero personal
 
 Personal expense tracking sub-agent for OpenClaw.
 
