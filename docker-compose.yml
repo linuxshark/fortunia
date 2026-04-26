@@ -1,0 +1,124 @@
+version: '3.9'
+
+x-common-variables: &common-variables
+  TZ: America/Santiago
+  PYTHONUNBUFFERED: 1
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: fortunia-db
+    environment:
+      <<: *common-variables
+      POSTGRES_USER: fortunia
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: fortunia
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./api/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortunia -d fortunia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fortunia-net
+    restart: unless-stopped
+
+  fortunia-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: fortunia-api
+    environment:
+      <<: *common-variables
+      DATABASE_URL: postgresql+psycopg://fortunia:${DB_PASSWORD}@db:5432/fortunia
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      DEFAULT_CURRENCY: CLP
+      DEFAULT_USER_ID: user
+      LOG_LEVEL: INFO
+      OCR_URL: http://ocr-service:8001
+      WHISPER_URL: http://whisper-service:9000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+      - ./data/uploads:/app/data/uploads
+    networks:
+      - fortunia-net
+    restart: unless-stopped
+
+  ocr-service:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    container_name: ocr-service
+    environment:
+      <<: *common-variables
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./data/uploads:/app/uploads
+    networks:
+      - fortunia-net
+    restart: unless-stopped
+
+  whisper-service:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: whisper-service
+    environment:
+      <<: *common-variables
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_ENGINE: ${ASR_ENGINE:-faster_whisper}
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - ./data/uploads:/app/uploads
+    networks:
+      - fortunia-net
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: fortunia-dashboard
+    environment:
+      <<: *common-variables
+    ports:
+      - "0.0.0.0:3000:3000"
+    depends_on:
+      - fortunia-api
+    networks:
+      - fortunia-net
+    restart: unless-stopped
+
+  backup-service:
+    image: prodrigestivill/postgres-backup-local:latest
+    container_name: fortunia-backup
+    environment:
+      <<: *common-variables
+      POSTGRES_HOST: db
+      POSTGRES_DB: fortunia
+      POSTGRES_USER: fortunia
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      BACKUP_DIR: /backups
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 12
+    volumes:
+      - ./data/backups:/backups
+    depends_on:
+      - db
+    networks:
+      - fortunia-net
+    restart: unless-stopped
+
+networks:
+  fortunia-net:
+    driver: bridge
