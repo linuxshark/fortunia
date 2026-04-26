@@ -1,0 +1,57 @@
+// openclaw.json configuration snippet for Fortunia sub-agent
+// Add this to your ~/.openclaw/openclaw.json agents array
+
+{
+  "id": "fortunia",
+  "name": "Fortunia",
+  "description": "Personal finance sub-agent",
+  "model": "gpt-4-turbo",  // Or your preferred model
+  "workspace": "~/.openclaw/workspace-fortunia",
+  "sandbox_mode": "off",
+  "environment": {
+    "FORTUNA_API_URL": "http://localhost:8000",
+    "FORTUNA_API_KEY": "${INTERNAL_API_KEY}",  // Set this in .env or pass directly
+  },
+  "tools": [
+    {
+      "name": "fortunia_ingest_text",
+      "description": "Ingest text expense to Fortunia",
+      "type": "http",
+      "method": "POST",
+      "url": "http://localhost:8000/ingest/text",
+      "headers": {
+        "X-Internal-Key": "${FORTUNA_API_KEY}",
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    },
+    {
+      "name": "fortunia_ingest_image",
+      "description": "Ingest receipt image to Fortunia",
+      "type": "http",
+      "method": "POST",
+      "url": "http://localhost:8000/ingest/image",
+      "headers": {
+        "X-Internal-Key": "${FORTUNA_API_KEY}"
+      }
+    },
+    {
+      "name": "fortunia_ingest_audio",
+      "description": "Ingest audio expense to Fortunia",
+      "type": "http",
+      "method": "POST",
+      "url": "http://localhost:8000/ingest/audio",
+      "headers": {
+        "X-Internal-Key": "${FORTUNA_API_KEY}"
+      }
+    },
+    {
+      "name": "fortunia_health",
+      "description": "Check Fortunia API health",
+      "type": "http",
+      "method": "GET",
+      "url": "http://localhost:8000/health"
+    }
+  ],
+  "channels": [],  // Fortunia does NOT listen to channels directly
+  "delegated_to": ["kraken"],  // Only invoked from Kraken
+}
