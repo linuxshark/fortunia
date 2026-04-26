@@ -3,10 +3,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .routers import ingest, expenses, reports, admin
+
 app = FastAPI(
     title="Fortunia API",
     description="Personal finance sub-agent for OpenClaw",
     version="0.1.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
 )
 
 # CORS: only localhost for security
@@ -18,8 +22,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "ok"}
+# Register routers
+app.include_router(ingest.router)
+app.include_router(expenses.router)
+app.include_router(reports.router)
+app.include_router(admin.router)
