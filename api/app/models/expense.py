@@ -19,6 +19,7 @@ class Expense(Base):
     user_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CLP", nullable=False)
+    type: Mapped[str] = mapped_column(String(10), nullable=False, default="expense")
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id"), nullable=True)
     merchant_id: Mapped[Optional[int]] = mapped_column(ForeignKey("merchants.id"), nullable=True)
     spent_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, index=True)

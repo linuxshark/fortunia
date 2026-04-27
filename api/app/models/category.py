@@ -20,6 +20,7 @@ class Category(Base):
     color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
     parent_id: Mapped[Optional[int]] = mapped_column(nullable=True)
     keywords: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, server_default="{}")
+    applicable_to: Mapped[str] = mapped_column(String(10), nullable=False, default="expense")
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # Relationships
