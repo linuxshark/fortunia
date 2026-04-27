@@ -72,21 +72,29 @@ def normalize_amount(text: str) -> Optional[Decimal]:
         except Exception:
             pass
 
-    # Handle standard number format: "15.000" (Chile) or "15000" (space-separated)
-    # Also "15,50" (decimal) or "15.50"
-    number_match = re.search(r'(\d{1,3}(?:\.\d{3})*|\d+)(?:[,.](\d{1,2}))?', text)
-    if number_match:
-        integer_part = number_match.group(1).replace('.', '')  # Remove thousand separators
-        decimal_part = number_match.group(2) or ''
-
-        if decimal_part:
-            # If we have decimal, use comma or period appropriately
-            amount_str = f"{integer_part}.{decimal_part}"
-        else:
-            amount_str = integer_part
-
+    # Try Chilean format first: digits with dots as thousand separators (e.g. "15.000", "1.500.000")
+    # Requires at least one .NNN group to distinguish from decimal numbers
+    chilean_match = re.search(r'(\d{1,3}(?:\.\d{3})+)', text)
+    if chilean_match:
+        integer_part = chilean_match.group(1).replace('.', '')
         try:
-            return Decimal(amount_str)
+            return Decimal(integer_part)
+        except Exception:
+            pass
+
+    # Plain integer (e.g. "4000000", "6500", "18000")
+    plain_match = re.search(r'\b(\d{3,})\b', text)
+    if plain_match:
+        try:
+            return Decimal(plain_match.group(1))
+        except Exception:
+            pass
+
+    # Small numbers (1-2 digit, e.g. amounts like "50")
+    small_match = re.search(r'\b(\d{1,2})\b', text)
+    if small_match:
+        try:
+            return Decimal(small_match.group(1))
         except Exception:
             pass
 
