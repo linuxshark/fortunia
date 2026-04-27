@@ -12,15 +12,19 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import get_db
 from app.deps import verify_internal_key
 from app.models import Category, Expense
+from app.models.user import User as UserModel
 from app.schemas.reports import (
+    CategoryBalanceSummary,
     CategoryReportResponse,
     CategorySummary,
     DayReportResponse,
+    MonthlyBalanceResponse,
     MonthReportResponse,
     TopMerchantsResponse,
     TrendPoint,
     TrendReportResponse,
     MerchantSummary,
+    UserItem,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -225,3 +229,80 @@ async def report_trend(
         trend=trend,
         average_monthly=average,
     )
+
+
+@router.get("/monthly-balance", response_model=MonthlyBalanceResponse)
+async def monthly_balance(
+    user_id: str = Query("all", description="user_key or 'all' for family total"),
+    month: str = Query(None, description="YYYY-MM format, defaults to current month"),
+    db: Session = Depends(get_db),
+    x_internal_key: str = Depends(verify_internal_key),
+) -> MonthlyBalanceResponse:
+    """Income vs expense balance for a given month."""
+    now = _now_santiago()
+    if month:
+        try:
+            year, m = map(int, month.split("-"))
+        except (ValueError, IndexError):
+            year, m = now.year, now.month
+    else:
+        year, m = now.year, now.month
+
+    start = datetime(year, m, 1, tzinfo=SANTIAGO_TZ)
+    if m == 12:
+        end = datetime(year + 1, 1, 1, tzinfo=SANTIAGO_TZ)
+    else:
+        end = datetime(year, m + 1, 1, tzinfo=SANTIAGO_TZ)
+
+    query = db.query(Expense).filter(
+        Expense.spent_at >= start,
+        Expense.spent_at < end,
+    )
+    if user_id != "all":
+        query = query.filter(Expense.user_id == user_id)
+
+    expenses = query.options(joinedload(Expense.category)).all()
+
+    total_income = sum(e.amount for e in expenses if e.type == "income") or Decimal("0")
+    total_exp = sum(e.amount for e in expenses if e.type == "expense") or Decimal("0")
+
+    cat_totals: dict[tuple[str, str], dict] = {}
+    for e in expenses:
+        cat_name = e.category.name if e.category else "Otros"
+        key = (cat_name, e.type)
+        if key not in cat_totals:
+            cat_totals[key] = {"total": Decimal("0"), "count": 0}
+        cat_totals[key]["total"] += e.amount
+        cat_totals[key]["count"] += 1
+
+    by_category = [
+        CategoryBalanceSummary(
+            category=cat,
+            type=typ,
+            total=data["total"],
+            count=data["count"],
+        )
+        for (cat, typ), data in sorted(cat_totals.items())
+    ]
+
+    ym_str = f"{year}-{m:02d}"
+    return MonthlyBalanceResponse(
+        month=ym_str,
+        user_id=user_id,
+        total_income=total_income,
+        total_expenses=total_exp,
+        balance=total_income - total_exp,
+        by_category=by_category,
+    )
+
+
+@router.get("/users", response_model=list[UserItem])
+async def list_users(
+    db: Session = Depends(get_db),
+    x_internal_key: str = Depends(verify_internal_key),
+) -> list[UserItem]:
+    """Return active users for dashboard filter dropdown."""
+    users = db.query(UserModel).filter_by(is_active=True).order_by(UserModel.id).all()
+    result = [UserItem(user_key="all", display_name="Todos")]
+    result += [UserItem(user_key=u.user_key, display_name=u.display_name) for u in users]
+    return result

@@ -83,3 +83,30 @@ class ExportRequest(BaseModel):
     format: str = Field(..., description="csv|xlsx")
     from_date: Optional[str] = None
     to_date: Optional[str] = None
+
+
+class CategoryBalanceSummary(BaseModel):
+    """Category entry in monthly balance."""
+
+    category: str
+    type: str  # "expense" | "income"
+    total: Decimal
+    count: int
+
+
+class MonthlyBalanceResponse(BaseModel):
+    """Monthly income vs expense balance."""
+
+    month: str
+    user_id: str
+    total_income: Decimal
+    total_expenses: Decimal
+    balance: Decimal
+    by_category: list[CategoryBalanceSummary]
+
+
+class UserItem(BaseModel):
+    """User entry for filter dropdown."""
+
+    user_key: str
+    display_name: str
