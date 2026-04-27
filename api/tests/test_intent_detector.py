@@ -140,3 +140,77 @@ class TestIntentDetector:
         """Test narrative about collected amount."""
         result = is_finance_intent("recaudó 50 millones en donaciones")
         assert result.is_finance is False
+
+    # INCOME CASES (should be detected as finance)
+
+    def test_income_recibi_sueldo(self) -> None:
+        """Test 'recibí' verb with salary."""
+        result = is_finance_intent("recibí 4000000 de sueldo")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_recibi_salary_month(self) -> None:
+        """Test 'recibí' variant with monthly salary."""
+        result = is_finance_intent("recibi mi sueldo este mes 1500000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_cobre_project(self) -> None:
+        """Test 'cobré' verb with project income."""
+        result = is_finance_intent("cobré el proyecto 350000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_me_pagaron(self) -> None:
+        """Test 'me pagaron' phrase."""
+        result = is_finance_intent("me pagaron el freelance 200000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_me_depositaron(self) -> None:
+        """Test 'me depositaron' phrase."""
+        result = is_finance_intent("me depositaron 1200000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_me_transfirieron(self) -> None:
+        """Test 'me transfirieron' phrase."""
+        result = is_finance_intent("me transfirieron 500000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_cayo_sueldo(self) -> None:
+        """Test 'cayó el sueldo' phrase."""
+        result = is_finance_intent("cayó el sueldo 1800000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_cayo_sueldo_unaccented(self) -> None:
+        """Test 'cayo el sueldo' phrase (unaccented)."""
+        result = is_finance_intent("cayo el sueldo hoy 1800000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_me_llego_pago(self) -> None:
+        """Test 'me llegó' phrase."""
+        result = is_finance_intent("me llegó el pago 450000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_me_llego_transferencia(self) -> None:
+        """Test 'me llego' phrase (unaccented)."""
+        result = is_finance_intent("me llego transferencia 300000")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_gane_project(self) -> None:
+        """Test 'gané' verb."""
+        result = is_finance_intent("gané 250000 en el proyecto")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85
+
+    def test_income_me_entraron(self) -> None:
+        """Test 'me entraron' phrase."""
+        result = is_finance_intent("me entraron 600000 hoy")
+        assert result.is_finance is True
+        assert result.confidence >= 0.85

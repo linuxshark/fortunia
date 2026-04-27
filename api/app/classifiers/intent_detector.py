@@ -19,11 +19,16 @@ FINANCE_VERBS_SINGLE = {
     "gasté", "gaste", "pagué", "pague", "compré", "compre",
     "costó", "costo", "salió", "salio", "transferí", "transferi",
     "invertí", "inverti", "invertir", "donar", "cobré", "cobre",
+    "recibí", "recibi", "gané", "gane",
 }
 
 # Finance verb phrases — checked as substrings of the lowercased text
 FINANCE_VERB_PHRASES = {
     "me costó", "me costo", "me salió", "me salio",
+    "me pagaron", "me depositaron", "me transfirieron",
+    "cayó el sueldo", "cayo el sueldo",
+    "me llegó", "me llego",
+    "me entraron",
 }
 
 # Negative context — both accented and unaccented variants
