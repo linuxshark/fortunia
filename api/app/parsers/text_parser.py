@@ -10,9 +10,15 @@ from app.classifiers.category_rules import classify_category
 
 # Income detection verbs and keywords
 INCOME_VERBS = {
-    "recibí", "recibe", "recibir",
+    "recibí", "recibi", "recibe", "recibir",
     "cobré", "cobre", "cobrar",
     "gané", "gane", "ganar",
+}
+
+INCOME_PHRASES = {
+    "me pagaron", "me depositaron", "me transfirieron",
+    "cayó el sueldo", "cayo el sueldo",
+    "me llegó", "me llego", "me entraron",
 }
 
 INCOME_KEYWORDS = {
@@ -36,6 +42,10 @@ def _detect_transaction_type(text: str) -> str:
 
     # Check for income verbs
     if any(verb in text_words for verb in INCOME_VERBS):
+        return "income"
+
+    # Check for income phrases
+    if any(phrase in text_lower for phrase in INCOME_PHRASES):
         return "income"
 
     # Check for income keywords
