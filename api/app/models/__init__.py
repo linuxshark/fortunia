@@ -7,6 +7,7 @@ from .expense import Expense
 from .raw_message import RawMessage
 from .attachment import Attachment
 from .intent_feedback import IntentFeedback
+from .user import User
 
 __all__ = [
     "Base",
@@ -16,4 +17,5 @@ __all__ = [
     "RawMessage",
     "Attachment",
     "IntentFeedback",
+    "User",
 ]
