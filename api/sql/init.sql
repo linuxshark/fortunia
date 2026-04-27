@@ -103,18 +103,26 @@ GROUP BY user_id, date_trunc('month', spent_at), category_id;
 
 CREATE UNIQUE INDEX ON monthly_summaries(user_id, month, category_id);
 
--- Seed categories with Chilean keywords
-INSERT INTO categories (name, icon, color, keywords) VALUES
-('Alimentación', 'utensils', '#E85D24',
- ARRAY['supermercado','super','jumbo','lider','líder','tottus','unimarc','santa isabel','almuerzo','cena','desayuno','sushi','pizza','restaurant','restaurante','café','cafe','panadería','panaderia','feria']),
-('Transporte', 'car', '#3B8BD4',
- ARRAY['uber','didi','cabify','taxi','metro','bencina','combustible','peaje','tag','bip','copec','shell','enex']),
-('Salud', 'heart-pulse', '#5DCAA5',
+-- Seed categories with Chilean keywords (11 categories: 8 expense, 2 income, 1 both)
+INSERT INTO categories (name, icon, color, applicable_to, keywords) VALUES
+('Comida', 'shopping-cart', '#E85D24', 'expense',
+ ARRAY['supermercado','jumbo','lider','líder','tottus','unimarc','santa isabel','almacén','feria','minimarket']),
+('Restaurantes', 'utensils', '#F97316', 'expense',
+ ARRAY['restaurant','restaurante','sushi','pizza','café','cafe','almuerzo','cena','panadería','panaderia','mcdonalds','burger','sandwichería']),
+('Transporte', 'car', '#3B8BD4', 'expense',
+ ARRAY['uber','didi','cabify','taxi','metro','bip','tag','peaje']),
+('Combustible', 'fuel', '#F59E0B', 'expense',
+ ARRAY['bencina','combustible','copec','shell','enex','petróleo','petroleo']),
+('Salud', 'heart-pulse', '#5DCAA5', 'expense',
  ARRAY['farmacia','farmacias ahumada','cruz verde','salcobrand','remedio','medicamento','doctor','médico','medico','clínica','clinica','dental','isapre','fonasa']),
-('Hogar', 'home', '#888780',
+('Hogar', 'home', '#888780', 'expense',
  ARRAY['arriendo','dividendo','luz','enel','cge','agua','aguas andinas','gas','lipigas','internet','vtr','movistar','entel','condominio','gastos comunes']),
-('Entretenimiento', 'film', '#7F77DD',
+('Entretenimiento', 'film', '#7F77DD', 'expense',
  ARRAY['netflix','spotify','disney','hbo','prime video','cine','cinemark','hoyts','concierto','teatro','steam','playstation']),
-('Ropa', 'shirt', '#D4537E',
+('Ropa', 'shirt', '#D4537E', 'expense',
  ARRAY['ropa','zapatos','zapatillas','camisa','vestido','h&m','zara','falabella','paris','ripley','hites']),
-('Otros', 'package', '#5F5E5A', ARRAY[]::text[]);
+('Sueldo', 'banknote', '#10B981', 'income',
+ ARRAY['sueldo','salario','remuneración','remuneracion']),
+('Otros Ingresos', 'arrow-down-circle', '#6EE7B7', 'income',
+ ARRAY['freelance','honorario','transferencia recibida','ingreso','pago recibido']),
+('Otros', 'package', '#5F5E5A', 'both', ARRAY[]::text[]);
