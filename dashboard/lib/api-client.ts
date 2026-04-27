@@ -150,4 +150,44 @@ export const fetchTopMerchants = async (userId: string, limit: number = 10) => {
   return data;
 };
 
+// ──────────────────────────────────────────────────────────────────────────────
+// v2 types — income/expense balance + users
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface CategoryBalanceSummary {
+  category: string;
+  type: 'expense' | 'income';
+  total: number;
+  count: number;
+}
+
+export interface MonthlyBalance {
+  month: string;
+  user_id: string;
+  total_income: number;
+  total_expenses: number;
+  balance: number;
+  by_category: CategoryBalanceSummary[];
+}
+
+export interface UserItem {
+  user_key: string;
+  display_name: string;
+}
+
+export const fetchMonthlyBalance = async (
+  userId: string,
+  month: string
+): Promise<MonthlyBalance> => {
+  const { data } = await client.get('/reports/monthly-balance', {
+    params: { user_id: userId, month },
+  });
+  return data;
+};
+
+export const fetchUsers = async (): Promise<UserItem[]> => {
+  const { data } = await client.get('/reports/users');
+  return data;
+};
+
 export default client;
