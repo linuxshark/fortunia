@@ -136,7 +136,7 @@ class TestParseExpenseText:
 
     def test_expense_does_not_classify_as_income_category(self) -> None:
         """Test expense does not get classified as income category."""
-        result = parse_expense_text("gasté 5.000 en comida")
+        result = parse_expense_text("gasté 5.000 en supermercado")
         assert result.type == "expense"
         assert result.category_hint != "Sueldo"
         assert result.category_hint != "Otros Ingresos"
