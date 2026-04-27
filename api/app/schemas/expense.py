@@ -59,6 +59,7 @@ class IngestResponse(BaseModel):
     currency: Optional[str] = None
     category: Optional[str] = None
     merchant: Optional[str] = None
+    type: Optional[str] = None
     confidence: float = 0.0
     needs_confirmation: bool = False
     user_message: str = Field(..., description="Ready for Telegram")

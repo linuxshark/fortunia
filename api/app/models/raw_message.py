@@ -17,7 +17,7 @@ class RawMessage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    telegram_id: Mapped[Optional[int]] = mapped_column(nullable=True, unique=True)
+    telegram_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
     type: Mapped[str] = mapped_column(String(10), nullable=False)  # text, image, audio
     content: Mapped[Optional[str]] = mapped_column(nullable=True)
     transcript: Mapped[Optional[str]] = mapped_column(nullable=True)

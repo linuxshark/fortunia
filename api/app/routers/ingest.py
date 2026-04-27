@@ -1,13 +1,14 @@
 """Ingest endpoints for expenses (text, image, audio)."""
 
 from decimal import Decimal
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
 from app.classifiers.intent_detector import is_finance_intent
 from app.db import get_db
-from app.deps import verify_internal_key
+from app.deps import verify_internal_key, resolve_user_key
 from app.models import Category, Expense, RawMessage
 from app.parsers.text_parser import parse_expense_text
 from app.schemas.expense import IngestResponse, IntentCheckRequest, IntentCheckResponse
@@ -38,6 +39,7 @@ async def check_intent(
 async def ingest_text(
     text: str = Form(...),
     user_id: str = Form(default="user"),
+    telegram_id: Optional[int] = Form(default=None),
     msg_id: str = Form(default=None),
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
@@ -51,6 +53,8 @@ async def ingest_text(
         user_id=user
         msg_id=123456
     """
+    resolved_user = resolve_user_key(telegram_id, user_id, db)
+
     parsed = parse_expense_text(text)
 
     if not parsed.amount:
@@ -61,16 +65,16 @@ async def ingest_text(
         )
 
     # Convert msg_id to int only if it is a numeric string (Telegram IDs are integers)
-    telegram_id: int | None = None
+    msg_telegram_id: int | None = None
     if msg_id is not None:
         try:
-            telegram_id = int(msg_id)
+            msg_telegram_id = int(msg_id)
         except (ValueError, TypeError):
-            telegram_id = None
+            msg_telegram_id = None
 
     raw_msg = RawMessage(
-        user_id=user_id,
-        telegram_id=telegram_id,
+        user_id=resolved_user,
+        telegram_id=telegram_id or msg_telegram_id,
         type="text",
         content=text,
         intent="finance",
@@ -90,7 +94,7 @@ async def ingest_text(
             category_name = category.name
 
     expense = Expense(
-        user_id=user_id,
+        user_id=resolved_user,
         amount=parsed.amount,
         currency=parsed.currency,
         category_id=category_id,
@@ -100,13 +104,18 @@ async def ingest_text(
         confidence=Decimal(str(parsed.confidence)),
         raw_msg_id=raw_msg.id,
     )
+    if hasattr(expense, "type") and parsed.type:
+        expense.type = parsed.type
     db.add(expense)
     db.commit()
     db.refresh(expense)
 
     category_str = category_name or "Otros"
     amount_fmt = f"{parsed.amount:,.0f}".replace(",", ".")
-    user_message = f"✅ Registrado: {category_str} — CLP {amount_fmt}"
+    if parsed.type == "income":
+        user_message = f"✅ Ingreso registrado: {category_str} — CLP {amount_fmt}"
+    else:
+        user_message = f"✅ Registrado: {category_str} — CLP {amount_fmt}"
 
     return IngestResponse(
         status="registered",
@@ -114,6 +123,7 @@ async def ingest_text(
         amount=parsed.amount,
         currency=parsed.currency,
         category=category_name,
+        type=parsed.type,
         confidence=parsed.confidence,
         user_message=user_message,
         parse_method=parsed.parse_method,
