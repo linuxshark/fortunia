@@ -36,10 +36,13 @@ TEST_API_KEY = "test_internal_key"
 
 @pytest.fixture(scope="session", autouse=True)
 def create_tables():
-    """Create all tables before the test session, drop after."""
+    """Create all tables before the test session, drop after (SQLite only)."""
     Base.metadata.create_all(bind=_test_engine)
     yield
-    Base.metadata.drop_all(bind=_test_engine)
+    # Only drop tables when running against SQLite (in-memory test DB).
+    # When running against PostgreSQL (TEST_DATABASE_URL set), preserve the DB.
+    if "sqlite" in str(_test_engine.url):
+        Base.metadata.drop_all(bind=_test_engine)
 
 
 @pytest.fixture()

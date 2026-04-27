@@ -1,5 +1,6 @@
 """Category classification rules."""
 
+import re
 from typing import Optional, Tuple
 
 
@@ -8,7 +9,7 @@ CATEGORY_KEYWORDS: dict[str, dict] = {
         "applicable_to": "expense",
         "keywords": [
             "supermercado", "jumbo", "lider", "líder", "tottus", "unimarc",
-            "santa isabel", "almacén", "feria", "minimarket",
+            "santa isabel", "almacén", "feria", "minimarket", "comida", "alimento", "alimentos",
         ],
     },
     "Restaurantes": {
@@ -96,7 +97,13 @@ def classify_category(
         if applicable != "both" and applicable != transaction_type:
             continue
         for keyword in meta["keywords"]:
-            if keyword in text_lower:
+            # Use word-boundary matching for single words to avoid partial matches
+            # (e.g. "gas" should not match inside "gasté")
+            if " " in keyword:
+                matched = keyword in text_lower
+            else:
+                matched = bool(re.search(r'\b' + re.escape(keyword) + r'\b', text_lower))
+            if matched:
                 confidence = min(0.5 + (len(keyword) / 50), 0.95)
                 return category, confidence
 

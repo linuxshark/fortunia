@@ -26,6 +26,32 @@ def normalize_amount(text: str) -> Optional[Decimal]:
     # Remove currency symbols
     text = re.sub(r'[$€¥]', '', text)
 
+    # Convert Spanish word-numbers to digits (for audio transcripts)
+    WORD_NUMBERS = {
+        "cero": 0, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+        "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
+        "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
+        "dieciséis": 16, "dieciseis": 16, "diecisiete": 17, "dieciocho": 18, "diecinueve": 19,
+        "veinte": 20, "veintiuno": 21, "veintidós": 22, "veintidos": 22, "veintitrés": 23,
+        "veintitrés": 23, "veinticuatro": 24, "veinticinco": 25,
+        "treinta": 30, "cuarenta": 40, "cincuenta": 50, "sesenta": 60,
+        "setenta": 70, "ochenta": 80, "noventa": 90,
+        "cien": 100, "ciento": 100, "doscientos": 200, "trescientos": 300,
+        "cuatrocientos": 400, "quinientos": 500, "seiscientos": 600,
+        "setecientos": 700, "ochocientos": 800, "novecientos": 900,
+    }
+    # Replace word-number + "mil" patterns (e.g. "quince mil" → "15000", "cinco mil" → "5000")
+    for word, value in WORD_NUMBERS.items():
+        # word + mil
+        text = re.sub(
+            r'\b' + re.escape(word) + r'\s+mil\b',
+            str(value * 1000),
+            text
+        )
+    # Replace standalone word-numbers (e.g. "quince" → "15")
+    for word, value in WORD_NUMBERS.items():
+        text = re.sub(r'\b' + re.escape(word) + r'\b', str(value), text)
+
     # Handle "lucas" (slang for 1000s in Chile)
     lucas_match = re.search(r'(\d+(?:[.,]\d+)?)\s*lucas', text)
     if lucas_match:
@@ -79,6 +105,23 @@ def normalize_amount(text: str) -> Optional[Decimal]:
         integer_part = chilean_match.group(1).replace('.', '')
         try:
             return Decimal(integer_part)
+        except Exception:
+            pass
+
+    # Decimal number with comma separator (e.g. "15,50" → 15.50, NOT thousands)
+    # Only when decimal part is 1-2 digits (not 3, which would be thousands)
+    decimal_comma_match = re.search(r'\b(\d+),(\d{1,2})\b', text)
+    if decimal_comma_match:
+        try:
+            return Decimal(f"{decimal_comma_match.group(1)}.{decimal_comma_match.group(2)}")
+        except Exception:
+            pass
+
+    # Decimal number with period separator (e.g. "15.50") — only 1-2 decimal digits
+    decimal_period_match = re.search(r'\b(\d+)\.(\d{1,2})\b', text)
+    if decimal_period_match:
+        try:
+            return Decimal(f"{decimal_period_match.group(1)}.{decimal_period_match.group(2)}")
         except Exception:
             pass
 
