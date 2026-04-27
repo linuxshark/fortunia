@@ -3,7 +3,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# Use npm install instead of npm ci to handle missing lockfile gracefully
+RUN npm install
 
 COPY . .
 RUN npm run build
@@ -17,9 +18,9 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY package*.json ./
 
-RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# node:20-alpine already ships with user/group "node" (uid/gid 1000)
+RUN chown -R node:node /app
+USER node
 
 EXPOSE 3000
 

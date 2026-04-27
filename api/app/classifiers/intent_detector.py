@@ -14,26 +14,31 @@ class IntentResult:
     reason: str = ""
 
 
-# Finance verbs in Spanish (Chilean context)
-FINANCE_VERBS = {
+# Finance verbs — single tokens (checked against word set)
+FINANCE_VERBS_SINGLE = {
     "gasté", "gaste", "pagué", "pague", "compré", "compre",
-    "me costó", "costó", "costo", "salió", "transferí", "invertí",
-    "gasté", "pagué", "invertir", "donar", "cobré", "cobré"
+    "costó", "costo", "salió", "salio", "transferí", "transferi",
+    "invertí", "inverti", "invertir", "donar", "cobré", "cobre",
 }
 
-# Negative context (narrative, not personal spending)
+# Finance verb phrases — checked as substrings of the lowercased text
+FINANCE_VERB_PHRASES = {
+    "me costó", "me costo", "me salió", "me salio",
+}
+
+# Negative context — both accented and unaccented variants
 NEGATIVE_CONTEXT = {
-    "vi una película",
-    "leí que",
+    "vi una película", "vi una pelicula",
+    "leí que", "lei que",
     "dicen que",
-    "según",
+    "según", "segun",
     "valuada en",
-    "recaudó",
-    "facturó",
+    "recaudó", "recaudo",
+    "facturó", "facturo",
     "cuesta producir",
     "si gastara",
-    "cuánto cuesta",
-    "¿cuánto cuesta",
+    "cuánto cuesta", "cuanto cuesta",
+    "¿cuánto cuesta", "¿cuanto cuesta",
 }
 
 
@@ -70,10 +75,12 @@ def is_finance_intent(text: str) -> IntentResult:
                 reason=f"negative_context:{neg_phrase}"
             )
 
-    # 2. Check for finance verbs
-    has_finance_verb = any(verb in text_words for verb in FINANCE_VERBS)
+    # 2. Check for finance verbs (single-word and multi-word)
+    has_finance_verb = (
+        any(verb in text_words for verb in FINANCE_VERBS_SINGLE)
+        or any(phrase in text_lower for phrase in FINANCE_VERB_PHRASES)
+    )
     if has_finance_verb:
-        # Check if there's an amount (simple heuristic: contains numbers)
         if any(c.isdigit() for c in text):
             return IntentResult(
                 is_finance=True,
@@ -85,19 +92,18 @@ def is_finance_intent(text: str) -> IntentResult:
     has_amount = any(c.isdigit() for c in text)
     has_category = any(keyword in text_lower for keyword in [
         "supermercado", "uber", "farmacia", "ropa", "comida",
-        "transporte", "café", "zapatos", "luz", "agua"
+        "transporte", "café", "cafe", "zapatos", "luz", "agua",
+        "jumbo", "lider", "líder", "metro", "netflix", "spotify",
     ])
 
     if has_amount and not has_finance_verb:
         if has_category and len(text.split()) < 12:
-            # Short message with category + amount likely a transaction
             return IntentResult(
                 is_finance=True,
                 confidence=0.85,
                 reason="amount_category_short"
             )
         else:
-            # Ambiguous — could be a price inquiry or narrative
             return IntentResult(
                 is_finance=False,
                 confidence=0.5,

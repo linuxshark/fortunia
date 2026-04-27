@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String
+from sqlalchemy import ARRAY, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -19,7 +19,7 @@ class Category(Base):
     icon: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
     parent_id: Mapped[Optional[int]] = mapped_column(nullable=True)
-    keywords: Mapped[list[str]] = mapped_column(default=list)
+    keywords: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # Relationships

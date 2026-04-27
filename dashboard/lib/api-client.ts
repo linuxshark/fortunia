@@ -1,119 +1,150 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
+// All API calls go through the Next.js server-side proxy (/api/fortunia/...).
+// The proxy injects the FORTUNIA_API_KEY — it is never exposed to the browser.
 const client: AxiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: '/api/fortunia',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
-    'X-Internal-Key': process.env.NEXT_PUBLIC_API_KEY || '',
   },
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Types matching api/app/schemas/expense.py and api/app/schemas/reports.py
+// ──────────────────────────────────────────────────────────────────────────────
+
 export interface Expense {
-  id: string;
+  id: number;
   user_id: string;
   amount: number;
   currency: string;
-  category: string;
-  merchant: string | null;
-  description: string | null;
+  category_id: number | null;
+  category_name: string | null;
+  merchant_id: number | null;
+  merchant_name: string | null;
   spent_at: string;
+  note: string | null;
+  source: string;
+  confidence: number | null;
   created_at: string;
-  confidence: number;
+  updated_at: string;
 }
 
 export interface CategorySummary {
   category: string;
   count: number;
-  total_amount: number;
+  total: number;
+  average: number;
   percentage: number;
 }
 
 export interface DayReport {
   date: string;
-  total_amount: number;
+  total: number;
+  currency: string;
   count: number;
-  top_category: string;
+  expenses: { id: number; amount: number }[];
 }
 
 export interface MonthReport {
   month: string;
-  total_amount: number;
+  total: number;
+  currency: string;
   count: number;
-  avg_expense: number;
+  by_category: CategorySummary[];
 }
+
+export interface CategoryReport {
+  period: string;
+  categories: CategorySummary[];
+  total: number;
+}
+
+export interface TrendPoint {
+  month: string;
+  total: number;
+  count: number;
+}
+
+export interface TrendReport {
+  months: number;
+  trend: TrendPoint[];
+  average_monthly: number;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Expense endpoints
+// ──────────────────────────────────────────────────────────────────────────────
 
 export const fetchExpenses = async (
   userId: string,
   limit: number = 50,
   offset: number = 0,
-  category?: string,
+  categoryId?: number,
   fromDate?: string,
   toDate?: string
 ): Promise<Expense[]> => {
-  const params: any = { limit, offset };
-  if (category) params.category = category;
-  if (fromDate) params.from = fromDate;
-  if (toDate) params.to = toDate;
+  const params: Record<string, unknown> = { user_id: userId, limit, offset };
+  if (categoryId != null) params.category_id = categoryId;
+  if (fromDate) params.from_date = fromDate;
+  if (toDate) params.to_date = toDate;
 
-  const { data } = await client.get(`/expenses`, {
-    params: { user_id: userId, ...params },
-  });
+  const { data } = await client.get('/expenses', { params });
   return data;
 };
 
-export const fetchExpenseById = async (id: string): Promise<Expense> => {
+export const fetchExpenseById = async (id: number): Promise<Expense> => {
   const { data } = await client.get(`/expenses/${id}`);
   return data;
 };
 
 export const updateExpense = async (
-  id: string,
-  updates: Partial<Expense>
+  id: number,
+  updates: Partial<Pick<Expense, 'amount' | 'category_id' | 'merchant_id' | 'note'>>
 ): Promise<Expense> => {
   const { data } = await client.patch(`/expenses/${id}`, updates);
   return data;
 };
 
-export const deleteExpense = async (id: string): Promise<void> => {
+export const deleteExpense = async (id: number): Promise<void> => {
   await client.delete(`/expenses/${id}`);
 };
 
-export const fetchDayReport = async (userId: string, date: string) => {
-  const { data } = await client.get(`/reports/today`, {
-    params: { user_id: userId, date },
-  });
-  return data;
-};
+// ──────────────────────────────────────────────────────────────────────────────
+// Report endpoints
+// ──────────────────────────────────────────────────────────────────────────────
 
-export const fetchMonthReport = async (userId: string, month: string) => {
-  const { data } = await client.get(`/reports/month`, {
-    params: { user_id: userId, month },
-  });
-  return data;
-};
-
-export const fetchCategoryReport = async (userId: string) => {
-  const { data } = await client.get(`/reports/categories`, {
+export const fetchDayReport = async (userId: string): Promise<DayReport> => {
+  const { data } = await client.get('/reports/today', {
     params: { user_id: userId },
   });
   return data;
 };
 
-export const fetchTrendReport = async (userId: string, days: number = 30) => {
-  const { data } = await client.get(`/reports/trend`, {
-    params: { user_id: userId, days },
+export const fetchMonthReport = async (userId: string, ym?: string): Promise<MonthReport> => {
+  const params: Record<string, string> = { user_id: userId };
+  if (ym) params.ym = ym;
+  const { data } = await client.get('/reports/month', { params });
+  return data;
+};
+
+export const fetchCategoryReport = async (userId: string, period = 'month'): Promise<CategoryReport> => {
+  const { data } = await client.get('/reports/categories', {
+    params: { user_id: userId, period },
   });
   return data;
 };
 
-export const fetchTopMerchants = async (
-  userId: string,
-  limit: number = 10
-) => {
-  const { data } = await client.get(`/reports/top-merchants`, {
+export const fetchTrendReport = async (userId: string, months: number = 6): Promise<TrendReport> => {
+  const { data } = await client.get('/reports/trend', {
+    params: { user_id: userId, months },
+  });
+  return data;
+};
+
+export const fetchTopMerchants = async (userId: string, limit: number = 10) => {
+  const { data } = await client.get('/reports/top-merchants', {
     params: { user_id: userId, limit },
   });
   return data;

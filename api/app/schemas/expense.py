@@ -36,7 +36,9 @@ class ExpenseResponse(BaseModel):
     amount: Decimal
     currency: str
     category_id: Optional[int] = None
+    category_name: Optional[str] = None
     merchant_id: Optional[int] = None
+    merchant_name: Optional[str] = None
     spent_at: datetime
     note: Optional[str] = None
     source: str

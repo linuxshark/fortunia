@@ -40,12 +40,16 @@ class WhisperClient:
                         params={
                             "task": task,
                             "language": language,
-                            "output": "txt",
+                            "output": "json",
                         },
                         files={"audio_file": ("audio.mp3", audio_bytes, "audio/mpeg")},
                     )
                     response.raise_for_status()
-                    return response.json()
+                    data = response.json()
+                    # whisper-asr-webservice returns {"text": "..."} for output=json
+                    if isinstance(data, str):
+                        return {"text": data}
+                    return data
             except httpx.HTTPError as e:
                 if attempt == self.retries - 1:
                     raise

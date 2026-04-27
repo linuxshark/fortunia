@@ -4,32 +4,24 @@ import { useEffect, useState } from 'react';
 import { fetchExpenses, Expense, updateExpense, deleteExpense } from '@/lib/api-client';
 import { format, parseISO } from 'date-fns';
 
+const DEFAULT_USER = 'user';
+
 export default function Expenses() {
-  const [userId] = useState('default_user');
+  const [userId] = useState(DEFAULT_USER);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [limit] = useState(50);
   const [offset, setOffset] = useState(0);
-  const [category, setCategory] = useState<string>('');
-  const [totalCount, setTotalCount] = useState(0);
-
-  const categories = ['all', 'food', 'transport', 'entertainment', 'utilities', 'health', 'shopping', 'other'];
 
   useEffect(() => {
     const loadExpenses = async () => {
       try {
         setLoading(true);
-        const data = await fetchExpenses(
-          userId,
-          limit,
-          offset,
-          category && category !== 'all' ? category : undefined
-        );
+        const data = await fetchExpenses(userId, limit, offset);
         setExpenses(data);
-        setTotalCount(data.length);
       } catch (err) {
-        setError('Failed to load expenses');
+        setError('Error al cargar los gastos');
         console.error(err);
       } finally {
         setLoading(false);
@@ -37,47 +29,34 @@ export default function Expenses() {
     };
 
     loadExpenses();
-  }, [userId, limit, offset, category]);
+  }, [userId, limit, offset]);
 
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCategory(e.target.value);
-    setOffset(0);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this expense?')) return;
+  const handleDelete = async (id: number) => {
+    if (!confirm('¿Eliminar este gasto?')) return;
     try {
       await deleteExpense(id);
       setExpenses(expenses.filter((e) => e.id !== id));
     } catch (err) {
-      setError('Failed to delete expense');
+      setError('Error al eliminar el gasto');
       console.error(err);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-lg text-gray-600">Loading expenses...</p>
+      <div className="flex items-center justify-center h-64">
+        <p className="text-lg text-gray-600">Cargando gastos...</p>
       </div>
     );
   }
 
+  const formatCLP = (amount: number, currency = 'CLP') =>
+    amount.toLocaleString('es-CL', { style: 'currency', currency, minimumFractionDigits: 0 });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
-        <select
-          value={category}
-          onChange={handleCategoryChange}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-        >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </option>
-          ))}
-        </select>
+        <h1 className="text-3xl font-bold text-gray-900">Gastos</h1>
       </div>
 
       {error && (
@@ -91,13 +70,13 @@ export default function Expenses() {
           <table className="min-w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Merchant</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Description</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Amount</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Confidence</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Comercio</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Categoría</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nota</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Monto</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Confianza</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -106,39 +85,39 @@ export default function Expenses() {
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {format(parseISO(expense.spent_at), 'dd/MM/yyyy HH:mm')}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{expense.merchant || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{expense.merchant_name || '—'}</td>
                   <td className="px-6 py-4 text-sm">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {expense.category}
+                      {expense.category_name || 'Otros'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{expense.description || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{expense.note || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">
-                    {expense.amount.toLocaleString('es-CL', {
-                      style: 'currency',
-                      currency: expense.currency,
-                      minimumFractionDigits: 0,
-                    })}
+                    {formatCLP(expense.amount, expense.currency)}
                   </td>
                   <td className="px-6 py-4 text-sm text-center">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        expense.confidence > 0.8
-                          ? 'bg-green-100 text-green-800'
-                          : expense.confidence > 0.6
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {Math.round(expense.confidence * 100)}%
-                    </span>
+                    {expense.confidence != null ? (
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          expense.confidence > 0.8
+                            ? 'bg-green-100 text-green-800'
+                            : expense.confidence > 0.6
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {Math.round(expense.confidence * 100)}%
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-6 py-4 text-center text-sm">
                     <button
                       onClick={() => handleDelete(expense.id)}
                       className="text-red-600 hover:text-red-900 font-medium"
                     >
-                      Delete
+                      Eliminar
                     </button>
                   </td>
                 </tr>
@@ -147,28 +126,28 @@ export default function Expenses() {
           </table>
         ) : (
           <div className="p-8 text-center">
-            <p className="text-gray-600">No expenses found.</p>
+            <p className="text-gray-600">No hay gastos registrados.</p>
           </div>
         )}
       </div>
 
       {/* Pagination */}
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-600">Showing {expenses.length} of {totalCount} expenses</p>
+        <p className="text-sm text-gray-600">Mostrando {expenses.length} gastos</p>
         <div className="space-x-2">
           <button
             onClick={() => setOffset(Math.max(0, offset - limit))}
             disabled={offset === 0}
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Previous
+            Anterior
           </button>
           <button
             onClick={() => setOffset(offset + limit)}
             disabled={expenses.length < limit}
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Next
+            Siguiente
           </button>
         </div>
       </div>

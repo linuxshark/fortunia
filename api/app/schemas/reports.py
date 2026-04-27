@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CategorySummary(BaseModel):
@@ -14,6 +14,7 @@ class CategorySummary(BaseModel):
     count: int
     total: Decimal
     average: Decimal
+    percentage: float = 0.0
 
 
 class MerchantSummary(BaseModel):

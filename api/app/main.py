@@ -13,7 +13,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# CORS: only localhost for security
+# CORS: only localhost/LAN for security
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -27,3 +27,9 @@ app.include_router(ingest.router)
 app.include_router(expenses.router)
 app.include_router(reports.router)
 app.include_router(admin.router)
+
+
+@app.get("/health", tags=["health"])
+async def health() -> dict:
+    """Top-level health check endpoint."""
+    return {"status": "ok"}

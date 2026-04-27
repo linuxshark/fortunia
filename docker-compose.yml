@@ -1,5 +1,3 @@
-version: '3.9'
-
 x-common-variables: &common-variables
   TZ: America/Santiago
   PYTHONUNBUFFERED: 1
@@ -90,6 +88,8 @@ services:
     container_name: fortunia-dashboard
     environment:
       <<: *common-variables
+      FORTUNIA_API_URL: http://fortunia-api:8000
+      FORTUNIA_API_KEY: ${INTERNAL_API_KEY}
     ports:
       - "0.0.0.0:3000:3000"
     depends_on:

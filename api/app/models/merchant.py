@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ARRAY, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -19,7 +19,7 @@ class Merchant(Base):
     normalized: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id"), nullable=True)
     rut: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
-    aliases: Mapped[list[str]] = mapped_column(default=list)
+    aliases: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # Relationships

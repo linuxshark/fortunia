@@ -49,9 +49,8 @@ async def ingest_text(
         POST /ingest/text
         text=gasté 15 lucas en ropa
         user_id=user
-        msg_id=tg_123456
+        msg_id=123456
     """
-    # Parse text
     parsed = parse_expense_text(text)
 
     if not parsed.amount:
@@ -61,14 +60,21 @@ async def ingest_text(
             confidence=0.0,
         )
 
-    # Create RawMessage audit record
+    # Convert msg_id to int only if it is a numeric string (Telegram IDs are integers)
+    telegram_id: int | None = None
+    if msg_id is not None:
+        try:
+            telegram_id = int(msg_id)
+        except (ValueError, TypeError):
+            telegram_id = None
+
     raw_msg = RawMessage(
         user_id=user_id,
-        telegram_id=msg_id,
+        telegram_id=telegram_id,
         type="text",
         content=text,
-        intent="finance" if parsed.amount else "unknown",
-        intent_conf=Decimal(parsed.confidence),
+        intent="finance",
+        intent_conf=Decimal(str(parsed.confidence)),
         used_llm=False,
     )
     db.add(raw_msg)
@@ -83,23 +89,21 @@ async def ingest_text(
             category_id = category.id
             category_name = category.name
 
-    # Create Expense
     expense = Expense(
         user_id=user_id,
         amount=parsed.amount,
         currency=parsed.currency,
         category_id=category_id,
-        spent_at=None,  # Use current time
+        spent_at=None,
         note=parsed.note,
         source="text",
-        confidence=Decimal(parsed.confidence),
+        confidence=Decimal(str(parsed.confidence)),
         raw_msg_id=raw_msg.id,
     )
     db.add(expense)
     db.commit()
     db.refresh(expense)
 
-    # Generate user message for Telegram
     category_str = category_name or "Otros"
     amount_fmt = f"{parsed.amount:,.0f}".replace(",", ".")
     user_message = f"✅ Registrado: {category_str} — CLP {amount_fmt}"
@@ -133,10 +137,8 @@ async def ingest_image(
         from app.services.ocr_client import OCRClient
         from app.parsers.receipt_parser import parse_receipt
 
-        # Read image file
         image_bytes = await file.read()
 
-        # Call OCR service
         ocr_client = OCRClient()
         ocr_result = await ocr_client.extract_text(image_bytes)
         ocr_text = ocr_result.get("text", "")
@@ -149,7 +151,6 @@ async def ingest_image(
                 parse_method="ocr",
             )
 
-        # Parse receipt
         parsed = parse_receipt(ocr_text)
 
         if not parsed.amount:
@@ -160,19 +161,17 @@ async def ingest_image(
                 parse_method="ocr",
             )
 
-        # Create RawMessage audit record
         raw_msg = RawMessage(
             user_id=user_id,
             type="image",
-            content=f"OCR: {ocr_text[:200]}...",
+            content=f"OCR: {ocr_text[:200]}",
             intent="finance",
-            intent_conf=Decimal(parsed.confidence),
+            intent_conf=Decimal(str(parsed.confidence)),
             used_llm=False,
         )
         db.add(raw_msg)
         db.flush()
 
-        # Resolve category
         category_id = None
         category_name = None
         if parsed.category_hint:
@@ -181,7 +180,6 @@ async def ingest_image(
                 category_id = category.id
                 category_name = category.name
 
-        # Create Expense
         expense = Expense(
             user_id=user_id,
             amount=parsed.amount,
@@ -189,14 +187,13 @@ async def ingest_image(
             category_id=category_id,
             note=parsed.merchant_hint,
             source="image",
-            confidence=Decimal(parsed.confidence),
+            confidence=Decimal(str(parsed.confidence)),
             raw_msg_id=raw_msg.id,
         )
         db.add(expense)
         db.commit()
         db.refresh(expense)
 
-        # Generate user message
         category_str = category_name or "Otros"
         amount_fmt = f"{parsed.amount:,.0f}".replace(",", ".")
         user_message = f"✅ Boleta registrada: {category_str} — CLP {amount_fmt}"
@@ -237,10 +234,8 @@ async def ingest_audio(
         from app.services.whisper_client import WhisperClient
         from app.parsers.audio_parser import parse_audio_transcript
 
-        # Read audio file
         audio_bytes = await file.read()
 
-        # Call Whisper service
         whisper_client = WhisperClient()
         whisper_result = await whisper_client.transcribe(audio_bytes, language="es")
         transcript = whisper_result.get("text", "")
@@ -253,7 +248,6 @@ async def ingest_audio(
                 parse_method="audio",
             )
 
-        # Parse transcript
         parsed = parse_audio_transcript(transcript)
 
         if not parsed.amount:
@@ -264,19 +258,17 @@ async def ingest_audio(
                 parse_method="audio",
             )
 
-        # Create RawMessage audit record
         raw_msg = RawMessage(
             user_id=user_id,
             type="audio",
             transcript=transcript,
-            intent="finance" if parsed.amount else "unknown",
-            intent_conf=Decimal(parsed.confidence),
+            intent="finance",
+            intent_conf=Decimal(str(parsed.confidence)),
             used_llm=False,
         )
         db.add(raw_msg)
         db.flush()
 
-        # Resolve category
         category_id = None
         category_name = None
         if parsed.category_hint:
@@ -285,7 +277,6 @@ async def ingest_audio(
                 category_id = category.id
                 category_name = category.name
 
-        # Create Expense
         expense = Expense(
             user_id=user_id,
             amount=parsed.amount,
@@ -293,14 +284,13 @@ async def ingest_audio(
             category_id=category_id,
             note=parsed.note,
             source="audio",
-            confidence=Decimal(parsed.confidence),
+            confidence=Decimal(str(parsed.confidence)),
             raw_msg_id=raw_msg.id,
         )
         db.add(expense)
         db.commit()
         db.refresh(expense)
 
-        # Generate user message
         category_str = category_name or "Otros"
         amount_fmt = f"{parsed.amount:,.0f}".replace(",", ".")
         user_message = f"✅ Audio registrado: {category_str} — CLP {amount_fmt}"

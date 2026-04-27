@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .normalizer import normalize_amount
+from app.classifiers.category_rules import classify_category
 
 
 @dataclass
@@ -44,62 +45,36 @@ def parse_expense_text(text: str) -> ParsedExpense:
     # 1. Extract amount
     result.amount = normalize_amount(text)
     if not result.amount:
-        return result  # No amount found, bail out
+        return result
 
-    # 2. Infer category from keywords (simplified version)
-    # In real code, this would call category_rules.classify_category()
-    category_keywords = {
-        "Alimentación": [
-            "supermercado", "super", "jumbo", "comida", "almuerzo", "cena",
-            "restaurante", "café", "pizza", "sushi", "pan", "panadería"
-        ],
-        "Transporte": [
-            "uber", "taxi", "metro", "bus", "bencina", "peaje", "didi"
-        ],
-        "Salud": [
-            "farmacia", "doctor", "médico", "clínica", "hospital", "remedio"
-        ],
-        "Hogar": [
-            "luz", "agua", "gas", "arriendo", "internet", "condominio"
-        ],
-        "Entretenimiento": [
-            "netflix", "spotify", "cine", "película", "teatro", "steam"
-        ],
-        "Ropa": [
-            "ropa", "zapatos", "zapatillas", "camisa", "vestido", "h&m", "zara"
-        ],
-    }
+    # 2. Infer category using the shared classifier
+    category_name, _cat_confidence = classify_category(text)
+    if category_name:
+        result.category_hint = category_name
 
-    for category, keywords in category_keywords.items():
-        if any(kw in text_lower for kw in keywords):
-            result.category_hint = category
-            break
-
-    # 3. Infer merchant (simplified)
+    # 3. Infer merchant from known names
     known_merchants = [
-        "jumbo", "lider", "unimarc", "tottus", "uber", "didi", "metro",
-        "farmacia", "netflix", "spotify"
+        "jumbo", "lider", "líder", "unimarc", "tottus", "santa isabel",
+        "uber", "didi", "cabify", "metro",
+        "farmacia", "salcobrand", "cruz verde",
+        "netflix", "spotify", "steam",
     ]
     for merchant in known_merchants:
         if merchant in text_lower:
             result.merchant_hint = merchant.title()
             break
 
-    # 4. Extract note (remaining text after removing amount and keywords)
-    note_text = text.split()
-    result.note = " ".join(note_text[:20])  # First 20 words as note
+    # 4. Keep the original text as note (first 20 words)
+    result.note = " ".join(text.split()[:20])
 
     # 5. Calculate confidence
-    confidence = 0.5  # Base
-
+    confidence = 0.5
     if result.amount:
-        confidence += 0.3  # Has amount
-
+        confidence += 0.3
     if result.category_hint:
-        confidence += 0.1  # Has category
-
+        confidence += 0.1
     if result.merchant_hint:
-        confidence += 0.1  # Has merchant
+        confidence += 0.1
 
     result.confidence = min(confidence, 1.0)
     result.parse_method = "rules"

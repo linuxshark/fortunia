@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
 from app.deps import verify_internal_key
@@ -12,6 +12,26 @@ from app.models import Expense
 from app.schemas.expense import ExpenseResponse, ExpenseCreate, ExpenseUpdate
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
+
+
+def _to_response(e: Expense) -> ExpenseResponse:
+    """Convert ORM Expense to ExpenseResponse including joined names."""
+    return ExpenseResponse(
+        id=e.id,
+        user_id=e.user_id,
+        amount=e.amount,
+        currency=e.currency,
+        category_id=e.category_id,
+        category_name=e.category.name if e.category else None,
+        merchant_id=e.merchant_id,
+        merchant_name=e.merchant.name if e.merchant else None,
+        spent_at=e.spent_at,
+        note=e.note,
+        source=e.source,
+        confidence=e.confidence,
+        created_at=e.created_at,
+        updated_at=e.updated_at,
+    )
 
 
 @router.get("", response_model=list[ExpenseResponse])
@@ -26,7 +46,11 @@ async def list_expenses(
     x_internal_key: str = Depends(verify_internal_key),
 ) -> list[ExpenseResponse]:
     """List expenses with optional filters."""
-    query = db.query(Expense).filter_by(user_id=user_id)
+    query = (
+        db.query(Expense)
+        .options(joinedload(Expense.category), joinedload(Expense.merchant))
+        .filter_by(user_id=user_id)
+    )
 
     if from_date:
         try:
@@ -46,7 +70,7 @@ async def list_expenses(
         query = query.filter_by(category_id=category_id)
 
     expenses = query.order_by(Expense.spent_at.desc()).limit(limit).offset(offset).all()
-    return [ExpenseResponse.from_orm(e) for e in expenses]
+    return [_to_response(e) for e in expenses]
 
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
@@ -56,10 +80,15 @@ async def get_expense(
     x_internal_key: str = Depends(verify_internal_key),
 ) -> ExpenseResponse:
     """Get single expense."""
-    expense = db.query(Expense).filter_by(id=expense_id).first()
+    expense = (
+        db.query(Expense)
+        .options(joinedload(Expense.category), joinedload(Expense.merchant))
+        .filter_by(id=expense_id)
+        .first()
+    )
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
-    return ExpenseResponse.from_orm(expense)
+    return _to_response(expense)
 
 
 @router.patch("/{expense_id}", response_model=ExpenseResponse)
@@ -70,7 +99,12 @@ async def update_expense(
     x_internal_key: str = Depends(verify_internal_key),
 ) -> ExpenseResponse:
     """Update expense."""
-    expense = db.query(Expense).filter_by(id=expense_id).first()
+    expense = (
+        db.query(Expense)
+        .options(joinedload(Expense.category), joinedload(Expense.merchant))
+        .filter_by(id=expense_id)
+        .first()
+    )
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
 
@@ -86,7 +120,7 @@ async def update_expense(
     expense.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(expense)
-    return ExpenseResponse.from_orm(expense)
+    return _to_response(expense)
 
 
 @router.delete("/{expense_id}")

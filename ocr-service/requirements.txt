@@ -1,4 +1,7 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+python-multipart==0.0.6
 pytesseract==0.3.10
 pillow==10.1.0
+numpy==1.26.4
+opencv-python-headless==4.9.0.80

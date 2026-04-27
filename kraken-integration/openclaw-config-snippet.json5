@@ -1,57 +1,71 @@
-// openclaw.json configuration snippet for Fortunia sub-agent
-// Add this to your ~/.openclaw/openclaw.json agents array
-
-{
-  "id": "fortunia",
-  "name": "Fortunia",
-  "description": "Personal finance sub-agent",
-  "model": "gpt-4-turbo",  // Or your preferred model
-  "workspace": "~/.openclaw/workspace-fortunia",
-  "sandbox_mode": "off",
-  "environment": {
-    "FORTUNA_API_URL": "http://localhost:8000",
-    "FORTUNA_API_KEY": "${INTERNAL_API_KEY}",  // Set this in .env or pass directly
-  },
-  "tools": [
-    {
-      "name": "fortunia_ingest_text",
-      "description": "Ingest text expense to Fortunia",
-      "type": "http",
-      "method": "POST",
-      "url": "http://localhost:8000/ingest/text",
-      "headers": {
-        "X-Internal-Key": "${FORTUNA_API_KEY}",
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
-    },
-    {
-      "name": "fortunia_ingest_image",
-      "description": "Ingest receipt image to Fortunia",
-      "type": "http",
-      "method": "POST",
-      "url": "http://localhost:8000/ingest/image",
-      "headers": {
-        "X-Internal-Key": "${FORTUNA_API_KEY}"
-      }
-    },
-    {
-      "name": "fortunia_ingest_audio",
-      "description": "Ingest audio expense to Fortunia",
-      "type": "http",
-      "method": "POST",
-      "url": "http://localhost:8000/ingest/audio",
-      "headers": {
-        "X-Internal-Key": "${FORTUNA_API_KEY}"
-      }
-    },
-    {
-      "name": "fortunia_health",
-      "description": "Check Fortunia API health",
-      "type": "http",
-      "method": "GET",
-      "url": "http://localhost:8000/health"
-    }
-  ],
-  "channels": [],  // Fortunia does NOT listen to channels directly
-  "delegated_to": ["kraken"],  // Only invoked from Kraken
-}
+// openclaw.json — Guía de integración Fortunia para OpenClaw 2026.4.x
+//
+// Tu openclaw.json usa el formato con "agents.defaults" (no un array de agentes).
+// OpenClaw 2026.4.x no tiene una primitiva nativa "agent_send" ni "http-tool".
+//
+// La integración recomendada se basa en las capacidades que SÍ tienes activadas:
+//   - tools.exec (host: gateway, security: full) → ejecutar scripts Python/curl
+//   - AGENTS.md de Kraken → instrucciones de delegación
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// PASO 1: Agregar variables de entorno al agente Kraken
+// ─────────────────────────────────────────────────────────────────────────────
+// En tu ~/.openclaw/openclaw.json, dentro de la sección agents.defaults
+// (o en un perfil específico de Kraken), agrega:
+//
+// "environment": {
+//   "FORTUNA_API_URL": "http://localhost:8000",
+//   "FORTUNA_API_KEY": "<mismo valor que INTERNAL_API_KEY en fortunia/.env>"
+// }
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// PASO 2: Actualizar AGENTS.md de Kraken
+// ─────────────────────────────────────────────────────────────────────────────
+// En ~/.openclaw/workspace/AGENTS.md, agrega esta sección:
+//
+// ## Delegación a Fortunia (gastos financieros)
+//
+// Antes de responder un mensaje del usuario, verifica si es un gasto:
+//
+// ```bash
+// python3 ~/Workdir/fortunia/kraken-integration/intent/finance_detector.py "$mensaje"
+// ```
+//
+// Si la salida contiene IS_FINANCE=true con CONFIDENCE >= 0.75:
+//
+// 1. Llama a la API de Fortunia para registrar el gasto:
+//    ```bash
+//    curl -s -X POST http://localhost:8000/ingest/text \
+//      -H "X-Internal-Key: $FORTUNA_API_KEY" \
+//      -F "text=$mensaje" \
+//      -F "user_id=kraken"
+//    ```
+// 2. El campo `user_message` de la respuesta JSON es lo que debes reenviar
+//    textualmente al usuario en Telegram. No lo reformules.
+//
+// Si IS_FINANCE=ambiguous o CONFIDENCE < 0.75, responde normalmente.
+// Si IS_FINANCE=false, responde normalmente.
+//
+// Ejemplos de gastos que SÍ deben delegarse:
+//   - "gasté 15 lucas en ropa"    → IS_FINANCE=true (0.95)
+//   - "pagué uber 6500"           → IS_FINANCE=true (0.95)
+//   - "jumbo 35 mil"              → IS_FINANCE=true (0.85)
+//
+// Ejemplos que NO se deben delegar:
+//   - "vi una película que costó 20 millones" → IS_FINANCE=false
+//   - "¿cuánto cuesta el iPhone?"             → IS_FINANCE=false
+//   - "20000"  (sin contexto)                 → IS_FINANCE=ambiguous
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// PASO 3: Verificar que Fortunia está corriendo
+// ─────────────────────────────────────────────────────────────────────────────
+// cd ~/Workdir/fortunia && docker compose up -d
+// curl http://localhost:8000/health   # → {"status":"ok"}
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTAS IMPORTANTES
+// ─────────────────────────────────────────────────────────────────────────────
+// - La API solo acepta requests desde localhost (127.0.0.1:8000).
+// - El dashboard es accesible desde la LAN en http://<ip-mac-mini>:3000.
+// - Para imágenes/audio, usa los endpoints /ingest/image y /ingest/audio
+//   con multipart/form-data (archivo en el campo "file").
