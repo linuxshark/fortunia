@@ -8,12 +8,51 @@ from .normalizer import normalize_amount
 from app.classifiers.category_rules import classify_category
 
 
+# Income detection verbs and keywords
+INCOME_VERBS = {
+    "recibí", "recibe", "recibir",
+    "cobré", "cobre", "cobrar",
+    "gané", "gane", "ganar",
+}
+
+INCOME_KEYWORDS = {
+    "sueldo", "salario", "remuneración", "remuneracion",
+    "freelance", "honorario", "transferencia recibida",
+    "ingreso", "pago recibido",
+}
+
+
+def _detect_transaction_type(text: str) -> str:
+    """
+    Detect if transaction is 'income' or 'expense' from text.
+
+    Returns: "income" or "expense"
+    """
+    if not text:
+        return "expense"
+
+    text_lower = text.lower()
+    text_words = set(text_lower.split())
+
+    # Check for income verbs
+    if any(verb in text_words for verb in INCOME_VERBS):
+        return "income"
+
+    # Check for income keywords
+    if any(keyword in text_lower for keyword in INCOME_KEYWORDS):
+        return "income"
+
+    # Default to expense
+    return "expense"
+
+
 @dataclass
 class ParsedExpense:
     """Result of parsing an expense text."""
 
     amount: Optional[Decimal] = None
     currency: str = "CLP"
+    type: str = "expense"  # "expense" or "income"
     category_hint: Optional[str] = None
     merchant_hint: Optional[str] = None
     note: Optional[str] = None
@@ -30,6 +69,7 @@ def parse_expense_text(text: str) -> ParsedExpense:
         ParsedExpense(
             amount=Decimal('15000'),
             currency='CLP',
+            type='expense',
             category_hint='Alimentación',
             merchant_hint='Jumbo',
             confidence=0.9
@@ -47,12 +87,15 @@ def parse_expense_text(text: str) -> ParsedExpense:
     if not result.amount:
         return result
 
-    # 2. Infer category using the shared classifier
-    category_name, _cat_confidence = classify_category(text)
+    # 2. Detect transaction type (income or expense)
+    result.type = _detect_transaction_type(text)
+
+    # 3. Infer category using the shared classifier, filtered by transaction type
+    category_name, _cat_confidence = classify_category(text, result.type)
     if category_name:
         result.category_hint = category_name
 
-    # 3. Infer merchant from known names
+    # 4. Infer merchant from known names
     known_merchants = [
         "jumbo", "lider", "líder", "unimarc", "tottus", "santa isabel",
         "uber", "didi", "cabify", "metro",
@@ -64,10 +107,10 @@ def parse_expense_text(text: str) -> ParsedExpense:
             result.merchant_hint = merchant.title()
             break
 
-    # 4. Keep the original text as note (first 20 words)
+    # 5. Keep the original text as note (first 20 words)
     result.note = " ".join(text.split()[:20])
 
-    # 5. Calculate confidence
+    # 6. Calculate confidence
     confidence = 0.5
     if result.amount:
         confidence += 0.3

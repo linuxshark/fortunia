@@ -11,6 +11,7 @@ CREATE TABLE categories (
     color       VARCHAR(7),
     parent_id   INT REFERENCES categories(id) ON DELETE SET NULL,
     keywords    TEXT[] NOT NULL DEFAULT '{}',
+    applicable_to VARCHAR(10) NOT NULL DEFAULT 'expense' CHECK (applicable_to IN ('expense', 'income', 'both')),
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
