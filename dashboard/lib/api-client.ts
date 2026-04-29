@@ -83,12 +83,14 @@ export const fetchExpenses = async (
   offset: number = 0,
   categoryId?: number,
   fromDate?: string,
-  toDate?: string
+  toDate?: string,
+  type?: 'expense' | 'income'
 ): Promise<Expense[]> => {
   const params: Record<string, unknown> = { user_id: userId, limit, offset };
   if (categoryId != null) params.category_id = categoryId;
   if (fromDate) params.from_date = fromDate;
   if (toDate) params.to_date = toDate;
+  if (type) params.type = type;
 
   const { data } = await client.get('/expenses', { params });
   return data;
@@ -99,10 +101,16 @@ export const fetchExpenseById = async (id: number): Promise<Expense> => {
   return data;
 };
 
-export const updateExpense = async (
-  id: number,
-  updates: Partial<Pick<Expense, 'amount' | 'category_id' | 'merchant_id' | 'note'>>
-): Promise<Expense> => {
+export interface ExpenseUpdate {
+  amount?: number;
+  category_id?: number | null;
+  merchant_name?: string;
+  note?: string;
+  spent_at?: string;
+  type?: 'expense' | 'income';
+}
+
+export const updateExpense = async (id: number, updates: ExpenseUpdate): Promise<Expense> => {
   const { data } = await client.patch(`/expenses/${id}`, updates);
   return data;
 };
@@ -188,6 +196,34 @@ export const fetchMonthlyBalance = async (
 export const fetchUsers = async (): Promise<UserItem[]> => {
   const { data } = await client.get('/reports/users');
   return data;
+};
+
+export interface Category {
+  id: number;
+  name: string;
+  applicable_to: 'expense' | 'income' | 'both';
+  keywords: string[];
+  icon: string | null;
+  color: string | null;
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+  applicable_to: 'expense' | 'income' | 'both';
+  keywords: string[];
+}
+
+export const fetchCategories = async (): Promise<Category[]> => {
+  const { data } = await client.get('/categories');
+  return data;
+};
+
+export const createCategory = async (payload: CreateCategoryPayload): Promise<void> => {
+  await client.post('/categories', payload);
+};
+
+export const deleteCategory = async (id: number): Promise<void> => {
+  await client.delete(`/categories/${id}`);
 };
 
 export default client;

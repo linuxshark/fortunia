@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import get_db
 from app.deps import verify_internal_key
 from app.models import Expense
+from app.models.merchant import Merchant
 from app.schemas.expense import ExpenseResponse, ExpenseCreate, ExpenseUpdate
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -40,17 +41,18 @@ async def list_expenses(
     from_date: Optional[str] = Query(None),
     to_date: Optional[str] = Query(None),
     category_id: Optional[int] = Query(None),
+    type: Optional[str] = Query(None, description="expense|income"),
     limit: int = Query(100, le=1000),
     offset: int = Query(0),
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
 ) -> list[ExpenseResponse]:
     """List expenses with optional filters."""
-    query = (
-        db.query(Expense)
-        .options(joinedload(Expense.category), joinedload(Expense.merchant))
-        .filter_by(user_id=user_id)
+    query = db.query(Expense).options(
+        joinedload(Expense.category), joinedload(Expense.merchant)
     )
+    if user_id != "all":
+        query = query.filter(Expense.user_id == user_id)
 
     if from_date:
         try:
@@ -68,6 +70,9 @@ async def list_expenses(
 
     if category_id:
         query = query.filter_by(category_id=category_id)
+
+    if type in ("expense", "income"):
+        query = query.filter(Expense.type == type)
 
     expenses = query.order_by(Expense.spent_at.desc()).limit(limit).offset(offset).all()
     return [_to_response(e) for e in expenses]
@@ -112,10 +117,29 @@ async def update_expense(
         expense.amount = data.amount
     if data.category_id is not None:
         expense.category_id = data.category_id
+    elif data.category_id == 0:
+        expense.category_id = None
     if data.merchant_id is not None:
         expense.merchant_id = data.merchant_id
+    if data.merchant_name is not None:
+        name = data.merchant_name.strip()
+        if name == "":
+            expense.merchant_id = None
+        else:
+            merchant = db.query(Merchant).filter(
+                Merchant.name.ilike(name)
+            ).first()
+            if not merchant:
+                merchant = Merchant(name=name, normalized=name.lower())
+                db.add(merchant)
+                db.flush()
+            expense.merchant_id = merchant.id
     if data.note is not None:
         expense.note = data.note
+    if data.spent_at is not None:
+        expense.spent_at = data.spent_at
+    if data.type is not None and data.type in ("expense", "income"):
+        expense.type = data.type
 
     expense.updated_at = datetime.utcnow()
     db.commit()

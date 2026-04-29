@@ -14,7 +14,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       - ./api/sql:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fortunia -d fortunia"]
@@ -122,3 +122,6 @@ services:
 networks:
   fortunia-net:
     driver: bridge
+
+volumes:
+  postgres_data:

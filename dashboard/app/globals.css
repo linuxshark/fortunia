@@ -8,13 +8,35 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-base:      #f1f5f9;
+  --bg-card:      #ffffff;
+  --bg-card-2:    #f8fafc;
+  --border:       #e2e8f0;
+  --text-primary: #0f172a;
+  --text-muted:   #64748b;
+}
+
+.dark {
+  --bg-base:      #0a0f1e;
+  --bg-card:      #111827;
+  --bg-card-2:    #1a2235;
+  --border:       #1e2d45;
+  --text-primary: #f1f5f9;
+  --text-muted:   #94a3b8;
+}
+
 html {
   color-scheme: light;
 }
+html.dark {
+  color-scheme: dark;
+}
 
 body {
-  background-color: #f8fafc;
-  color: #1e293b;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-feature-settings: "tnum";
 }
 
 a {

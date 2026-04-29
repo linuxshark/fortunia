@@ -38,7 +38,7 @@ def _now_santiago() -> datetime:
 
 @router.get("/today", response_model=DayReportResponse)
 async def report_today(
-    user_id: str = Query("user"),
+    user_id: str = Query("all"),
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
 ) -> DayReportResponse:
@@ -48,11 +48,13 @@ async def report_today(
     start = datetime(today.year, today.month, today.day, tzinfo=SANTIAGO_TZ)
     end = start + timedelta(days=1)
 
-    expenses = db.query(Expense).filter(
-        Expense.user_id == user_id,
+    query = db.query(Expense).filter(
         Expense.spent_at >= start,
         Expense.spent_at < end,
-    ).options(joinedload(Expense.category)).all()
+    )
+    if user_id != "all":
+        query = query.filter(Expense.user_id == user_id)
+    expenses = query.options(joinedload(Expense.category)).all()
 
     total = sum(e.amount for e in expenses) if expenses else Decimal("0")
 
@@ -67,7 +69,7 @@ async def report_today(
 
 @router.get("/month", response_model=MonthReportResponse)
 async def report_month(
-    user_id: str = Query("user"),
+    user_id: str = Query("all"),
     ym: str = Query(None, description="YYYY-MM format"),
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
@@ -82,11 +84,13 @@ async def report_month(
     else:
         year, month = now.year, now.month
 
-    expenses = db.query(Expense).filter(
-        Expense.user_id == user_id,
+    query = db.query(Expense).filter(
         func.extract("year", Expense.spent_at) == year,
         func.extract("month", Expense.spent_at) == month,
-    ).options(joinedload(Expense.category)).all()
+    )
+    if user_id != "all":
+        query = query.filter(Expense.user_id == user_id)
+    expenses = query.options(joinedload(Expense.category)).all()
 
     total = sum(e.amount for e in expenses) if expenses else Decimal("0")
 
@@ -120,7 +124,7 @@ async def report_month(
 
 @router.get("/categories", response_model=CategoryReportResponse)
 async def report_categories(
-    user_id: str = Query("user"),
+    user_id: str = Query("all"),
     period: str = Query("month", description="month|year"),
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
@@ -138,11 +142,13 @@ async def report_categories(
         start = datetime(now.year, 1, 1, tzinfo=SANTIAGO_TZ)
         end = datetime(now.year + 1, 1, 1, tzinfo=SANTIAGO_TZ)
 
-    expenses = db.query(Expense).filter(
-        Expense.user_id == user_id,
+    query = db.query(Expense).filter(
         Expense.spent_at >= start,
         Expense.spent_at < end,
-    ).options(joinedload(Expense.category)).all()
+    )
+    if user_id != "all":
+        query = query.filter(Expense.user_id == user_id)
+    expenses = query.options(joinedload(Expense.category)).all()
 
     total = sum(e.amount for e in expenses) if expenses else Decimal("0")
 
@@ -189,7 +195,7 @@ async def report_top_merchants(
 
 @router.get("/trend", response_model=TrendReportResponse)
 async def report_trend(
-    user_id: str = Query("user"),
+    user_id: str = Query("all"),
     months: int = Query(6, ge=1, le=24),
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
@@ -205,11 +211,13 @@ async def report_trend(
         year = now.year + (month_offset - 1) // 12
         month = ((month_offset - 1) % 12) + 1
 
-        monthly_expenses = db.query(Expense).filter(
-            Expense.user_id == user_id,
+        month_query = db.query(Expense).filter(
             func.extract("year", Expense.spent_at) == year,
             func.extract("month", Expense.spent_at) == month,
-        ).all()
+        )
+        if user_id != "all":
+            month_query = month_query.filter(Expense.user_id == user_id)
+        monthly_expenses = month_query.all()
 
         monthly_total = sum(e.amount for e in monthly_expenses) if monthly_expenses else Decimal("0")
         total_amount += monthly_total
@@ -301,8 +309,28 @@ async def list_users(
     db: Session = Depends(get_db),
     x_internal_key: str = Depends(verify_internal_key),
 ) -> list[UserItem]:
-    """Return active users for dashboard filter dropdown."""
-    users = db.query(UserModel).filter_by(is_active=True).order_by(UserModel.id).all()
+    """Return users that have expenses, using display name from users table when available."""
+    from sqlalchemy import distinct
+    from app.models.expense import Expense as ExpenseModel
+
+    # All user_ids that have at least one expense
+    rows = db.query(distinct(ExpenseModel.user_id)).order_by(ExpenseModel.user_id).all()
+    active_user_ids = [r[0] for r in rows]
+
+    # Build display name map from users table (best-effort, may not exist)
+    name_map: dict[str, str] = {}
+    try:
+        db_users = db.query(UserModel).filter(
+            UserModel.user_key.in_(active_user_ids)
+        ).all()
+        name_map = {u.user_key: u.display_name for u in db_users}
+    except Exception:
+        pass
+
     result = [UserItem(user_key="all", display_name="Todos")]
-    result += [UserItem(user_key=u.user_key, display_name=u.display_name) for u in users]
+    for uid in active_user_ids:
+        result.append(UserItem(
+            user_key=uid,
+            display_name=name_map.get(uid, uid),  # fallback: mostrar el ID
+        ))
     return result

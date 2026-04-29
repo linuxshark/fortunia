@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import ingest, expenses, reports, admin
+from .routers import ingest, expenses, reports, admin, categories
 
 app = FastAPI(
     title="Fortunia API",
@@ -27,6 +27,7 @@ app.include_router(ingest.router)
 app.include_router(expenses.router)
 app.include_router(reports.router)
 app.include_router(admin.router)
+app.include_router(categories.router)
 
 
 @app.get("/health", tags=["health"])

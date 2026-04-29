@@ -25,7 +25,10 @@ class ExpenseUpdate(BaseModel):
     amount: Optional[Decimal] = None
     category_id: Optional[int] = None
     merchant_id: Optional[int] = None
+    merchant_name: Optional[str] = None
     note: Optional[str] = None
+    spent_at: Optional[datetime] = None
+    type: Optional[str] = None
 
 
 class ExpenseResponse(BaseModel):

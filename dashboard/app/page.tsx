@@ -23,7 +23,44 @@ import MonthNavigator from './components/MonthNavigator';
 import UserFilter from './components/UserFilter';
 import BalanceCard from './components/BalanceCard';
 
-export default function Overview() {
+const formatCLP = (v: number) => {
+  const abs = Math.abs(Math.round(v));
+  const formatted = abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return v < 0 ? `-$${formatted}` : `$${formatted}`;
+};
+
+const tickCLP = (v: number) => {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`;
+  return `$${v}`;
+};
+
+const CHART_COLORS = {
+  line: '#3b6ef8',
+  bar:  '#3b6ef8',
+  grid: 'var(--border)',
+  axis: 'var(--text-muted)',
+};
+
+function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-xl p-5 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </p>
+      <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+        {value}
+      </p>
+      {sub && (
+        <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function Resumen() {
   const [userId, setUserId] = useState('all');
   const [activeMonth, setActiveMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [dayReport, setDayReport] = useState<DayReport | null>(null);
@@ -34,12 +71,10 @@ export default function Overview() {
   const [balance, setBalance] = useState<MonthlyBalance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
       const [day, month, trend, categories, merchants, bal] = await Promise.all([
         fetchDayReport(userId).catch(() => null),
         fetchMonthReport(userId, activeMonth).catch(() => null),
@@ -48,193 +83,239 @@ export default function Overview() {
         fetchTopMerchants(userId, 5).catch(() => ({ merchants: [] })),
         fetchMonthlyBalance(userId, activeMonth).catch(() => null),
       ]);
-
       setDayReport(day);
       setMonthReport(month);
       setTrendData(trend);
       setCategoryData(categories);
       setTopMerchants(merchants?.merchants ?? []);
       setBalance(bal);
-    } catch (err) {
+    } catch {
       setError('Error al cargar el dashboard');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   }, [userId, activeMonth]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const formatCLP = (v: number) =>
-    v.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 });
+  useEffect(() => { loadData(); }, [loadData]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-lg text-gray-600">Cargando dashboard...</p>
+      <div className="flex flex-col gap-4 animate-pulse">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-24 rounded-xl" style={{ backgroundColor: 'var(--bg-card)' }} />
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
-        <p>{error}</p>
+      <div className="rounded-xl p-5 text-sm" style={{ backgroundColor: '#2d1a1a', color: '#E85D24', border: '1px solid #6b2a1a' }}>
+        {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header: month navigator + user filter */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <MonthNavigator value={activeMonth} onChange={setActiveMonth} />
-        <UserFilter value={userId} onChange={setUserId} />
-      </div>
-
-      {/* Balance cards (income / expenses / net) */}
-      <BalanceCard
-        totalIncome={balance?.total_income ?? 0}
-        totalExpenses={balance?.total_expenses ?? 0}
-        balance={balance?.balance ?? 0}
-      />
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600 text-sm font-medium">Gasto de hoy</p>
-          <p className="text-3xl font-bold text-primary mt-2">
-            {dayReport ? formatCLP(dayReport.total) : '$0'}
-          </p>
-          <p className="text-gray-600 text-xs mt-2">{dayReport?.count ?? 0} transacciones</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600 text-sm font-medium">Total mes</p>
-          <p className="text-3xl font-bold text-primary mt-2">
-            {monthReport ? formatCLP(monthReport.total) : '$0'}
-          </p>
-          <p className="text-gray-600 text-xs mt-2">{monthReport?.count ?? 0} registros</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600 text-sm font-medium">Promedio por transacción</p>
-          <p className="text-3xl font-bold text-primary mt-2">
-            {monthReport && monthReport.count > 0
-              ? formatCLP(monthReport.total / monthReport.count)
-              : '$0'}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600 text-sm font-medium">Promedio mensual</p>
-          <p className="text-3xl font-bold text-primary mt-2">
-            {trendData ? formatCLP(trendData.average_monthly) : '$0'}
-          </p>
-          <p className="text-gray-600 text-xs mt-2">Últimos {trendData?.months ?? 6} meses</p>
-        </div>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Tendencia mensual</h2>
-          {trendData && trendData.trend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendData.trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '0.875rem' }} />
-                <YAxis stroke="#64748b" style={{ fontSize: '0.875rem' }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(value: number) => formatCLP(value)} />
-                <Legend />
-                <Line type="monotone" dataKey="total" name="Total" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#2563eb', r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-gray-600 text-center py-8">Sin datos disponibles</p>
-          )}
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Distribución por categoría</h2>
-          {categoryData && categoryData.categories.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryData.categories}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="category" stroke="#64748b" style={{ fontSize: '0.75rem' }} angle={-45} textAnchor="end" height={80} />
-                <YAxis stroke="#64748b" style={{ fontSize: '0.875rem' }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(value: number) => formatCLP(value)} />
-                <Bar dataKey="total" name="Total" fill="#2563eb" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-gray-600 text-center py-8">Sin datos disponibles</p>
-          )}
-        </div>
-      </div>
-
-      {/* Balance por categoría del mes */}
-      {balance && balance.by_category.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Desglose del mes</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Categoría</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tipo</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">Registros</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {balance.by_category.map((row, idx) => (
-                  <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">{row.category}</td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
-                        {row.type === 'income' ? 'ingreso' : 'gasto'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 text-center">{row.count}</td>
-                    <td className={`px-6 py-4 text-sm font-medium text-right ${row.type === 'income' ? 'text-emerald-600' : 'text-gray-900'}`}>
-                      {formatCLP(row.total)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <>
+      <div className="space-y-6">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <MonthNavigator value={activeMonth} onChange={setActiveMonth} />
+          <div className="flex items-center gap-3">
+            <UserFilter value={userId} onChange={setUserId} />
           </div>
         </div>
-      )}
 
-      {/* Top Merchants */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Top comercios</h2>
-        {topMerchants.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Comercio</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Transacciones</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topMerchants.map((m, idx) => (
-                  <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">{m.merchant || 'Desconocido'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{m.count}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">{formatCLP(m.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Balance cards */}
+        <BalanceCard
+          totalIncome={balance?.total_income ?? 0}
+          totalExpenses={balance?.total_expenses ?? 0}
+          balance={balance?.balance ?? 0}
+        />
+
+        {/* KPI row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            label="Saldo"
+            value={dayReport ? formatCLP(dayReport.total) : '$0'}
+            sub={`${dayReport?.count ?? 0} transacciones`}
+          />
+          <KpiCard
+            label="Total del mes"
+            value={monthReport ? formatCLP(monthReport.total) : '$0'}
+            sub={`${monthReport?.count ?? 0} registros`}
+          />
+          <KpiCard
+            label="Promedio por transacción"
+            value={
+              monthReport && monthReport.count > 0
+                ? formatCLP(monthReport.total / monthReport.count)
+                : '$0'
+            }
+          />
+          <KpiCard
+            label="Promedio mensual"
+            value={trendData ? formatCLP(trendData.average_monthly) : '$0'}
+            sub={`Últimos ${trendData?.months ?? 6} meses`}
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-xl p-5 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+            <h2 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+              Tendencia mensual
+            </h2>
+            {trendData && trendData.trend.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={trendData.trend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                  <XAxis dataKey="month" stroke={CHART_COLORS.axis} tick={{ fontSize: 11 }} />
+                  <YAxis stroke={CHART_COLORS.axis} tick={{ fontSize: 11 }} tickFormatter={tickCLP} />
+                  <Tooltip
+                    formatter={(v: number) => [formatCLP(v), 'Total']}
+                    contentStyle={{ backgroundColor: 'var(--bg-card-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    name="Total"
+                    stroke={CHART_COLORS.line}
+                    strokeWidth={2}
+                    dot={{ fill: CHART_COLORS.line, r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>Sin datos disponibles</p>
+            )}
           </div>
-        ) : (
-          <p className="text-gray-600 text-center py-8">Sin comercios registrados</p>
+
+          <div className="rounded-xl p-5 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+            <h2 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+              Distribución por categoría
+            </h2>
+            {categoryData && categoryData.categories.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={categoryData.categories}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                  <XAxis dataKey="category" stroke={CHART_COLORS.axis} tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
+                  <YAxis stroke={CHART_COLORS.axis} tick={{ fontSize: 11 }} tickFormatter={tickCLP} />
+                  <Tooltip
+                    formatter={(v: number) => [formatCLP(v), 'Total']}
+                    contentStyle={{ backgroundColor: 'var(--bg-card-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
+                  />
+                  <Bar dataKey="total" name="Total" fill={CHART_COLORS.bar} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>Sin datos disponibles</p>
+            )}
+          </div>
+        </div>
+
+        {/* Desglose del mes */}
+        {balance && balance.by_category.length > 0 && (
+          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+            <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Desglose del mes
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--bg-card-2)' }}>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Categoría</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Tipo</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Registros</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {balance.by_category.map((row, idx) => (
+                    <tr
+                      key={idx}
+                      className="border-t transition-colors"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <td className="px-5 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {row.category}
+                      </td>
+                      <td className="px-5 py-3 text-sm">
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          style={{
+                            backgroundColor: row.type === 'income' ? 'rgba(93,202,165,0.15)' : 'rgba(232,93,36,0.15)',
+                            color: row.type === 'income' ? '#5DCAA5' : '#E85D24',
+                          }}
+                        >
+                          {row.type === 'income' ? 'ingreso' : 'gasto'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                        {row.count}
+                      </td>
+                      <td
+                        className="px-5 py-3 text-sm font-semibold text-right tabular-nums"
+                        style={{ color: row.type === 'income' ? '#5DCAA5' : 'var(--text-primary)' }}
+                      >
+                        {formatCLP(row.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
+
+        {/* Top comercios */}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+            <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              Top comercios
+            </h2>
+          </div>
+          {topMerchants.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--bg-card-2)' }}>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Comercio</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Transacciones</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topMerchants.map((m, idx) => (
+                    <tr key={idx} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                      <td className="px-5 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {m.merchant || 'Desconocido'}
+                      </td>
+                      <td className="px-5 py-3 text-sm tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                        {m.count}
+                      </td>
+                      <td className="px-5 py-3 text-sm font-semibold text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                        {formatCLP(m.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Sin comercios registrados
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
+

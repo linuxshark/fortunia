@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { fetchUsers, UserItem } from '@/lib/api-client';
 
 interface Props {
-  value: string;        // user_key or "all"
+  value: string;
   onChange: (userKey: string) => void;
 }
 
@@ -21,7 +21,12 @@ export default function UserFilter({ value, onChange }: Props) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2"
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        color: 'var(--text-primary)',
+        border: '1px solid var(--border)',
+      }}
     >
       {users.map((u) => (
         <option key={u.user_key} value={u.user_key}>

@@ -63,6 +63,7 @@ CREATE TABLE expenses (
     user_id       VARCHAR(50) NOT NULL,
     amount        NUMERIC(14,2) NOT NULL CHECK (amount > 0),
     currency      CHAR(3) NOT NULL DEFAULT 'CLP',
+    type          VARCHAR(10) NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income')),
     category_id   INT REFERENCES categories(id) ON DELETE SET NULL,
     merchant_id   INT REFERENCES merchants(id) ON DELETE SET NULL,
     spent_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -78,6 +79,17 @@ CREATE INDEX idx_exp_spent_at ON expenses(spent_at DESC);
 CREATE INDEX idx_exp_user_month ON expenses(user_id, date_trunc('month', spent_at));
 CREATE INDEX idx_exp_category ON expenses(category_id);
 CREATE INDEX idx_exp_user ON expenses(user_id);
+
+-- Users (maps Telegram ID to display name)
+CREATE TABLE users (
+    id          SERIAL PRIMARY KEY,
+    telegram_id BIGINT UNIQUE NOT NULL,
+    display_name VARCHAR(50) NOT NULL,
+    user_key    VARCHAR(50) UNIQUE NOT NULL,
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_users_telegram ON users(telegram_id);
 
 -- Intent feedback for model improvement
 CREATE TABLE intent_feedback (
@@ -104,26 +116,44 @@ GROUP BY user_id, date_trunc('month', spent_at), category_id;
 
 CREATE UNIQUE INDEX ON monthly_summaries(user_id, month, category_id);
 
--- Seed categories with Chilean keywords (11 categories: 8 expense, 2 income, 1 both)
+-- Seed categories with Chilean keywords
 INSERT INTO categories (name, icon, color, applicable_to, keywords) VALUES
-('Comida', 'shopping-cart', '#E85D24', 'expense',
- ARRAY['supermercado','jumbo','lider','líder','tottus','unimarc','santa isabel','almacén','feria','minimarket']),
-('Restaurantes', 'utensils', '#F97316', 'expense',
- ARRAY['restaurant','restaurante','sushi','pizza','café','cafe','almuerzo','cena','panadería','panaderia','mcdonalds','burger','sandwichería']),
-('Transporte', 'car', '#3B8BD4', 'expense',
- ARRAY['uber','didi','cabify','taxi','metro','bip','tag','peaje']),
-('Combustible', 'fuel', '#F59E0B', 'expense',
- ARRAY['bencina','combustible','copec','shell','enex','petróleo','petroleo']),
-('Salud', 'heart-pulse', '#5DCAA5', 'expense',
- ARRAY['farmacia','farmacias ahumada','cruz verde','salcobrand','remedio','medicamento','doctor','médico','medico','clínica','clinica','dental','isapre','fonasa']),
-('Hogar', 'home', '#888780', 'expense',
- ARRAY['arriendo','dividendo','luz','enel','cge','agua','aguas andinas','gas','lipigas','internet','vtr','movistar','entel','condominio','gastos comunes']),
-('Entretenimiento', 'film', '#7F77DD', 'expense',
- ARRAY['netflix','spotify','disney','hbo','prime video','cine','cinemark','hoyts','concierto','teatro','steam','playstation']),
-('Ropa', 'shirt', '#D4537E', 'expense',
- ARRAY['ropa','zapatos','zapatillas','camisa','vestido','h&m','zara','falabella','paris','ripley','hites']),
-('Sueldo', 'banknote', '#10B981', 'income',
- ARRAY['sueldo','salario','remuneración','remuneracion']),
-('Otros Ingresos', 'arrow-down-circle', '#6EE7B7', 'income',
+-- Ingresos
+('Salario',                    'banknote',          '#10B981', 'income',
+ ARRAY['salario','sueldo','remuneración','remuneracion','pago mensual']),
+('Otros Ingresos',             'arrow-down-circle', '#6EE7B7', 'income',
  ARRAY['freelance','honorario','transferencia recibida','ingreso','pago recibido']),
-('Otros', 'package', '#5F5E5A', 'both', ARRAY[]::text[]);
+-- Alimentación
+('Comida',                     'shopping-cart',     '#E85D24', 'expense',
+ ARRAY['supermercado','jumbo','lider','líder','tottus','unimarc','santa isabel','almacén','feria','minimarket']),
+('Restaurantes',               'utensils',          '#F97316', 'expense',
+ ARRAY['restaurant','restaurante','sushi','pizza','café','cafe','almuerzo','cena','panadería','panaderia','mcdonalds','burger','sandwichería']),
+-- Servicios básicos
+('Servicio Agua',              'droplets',          '#38BDF8', 'expense',
+ ARRAY['agua','servicio agua','aguas andinas','esval','essbio','bill agua']),
+('Servicio Energía Eléctrica', 'zap',               '#FACC15', 'expense',
+ ARRAY['luz','electricidad','energía eléctrica','energia electrica','enel','cge','chilquinta']),
+-- Créditos
+('Crédito Hipotecario',        'building',          '#6366F1', 'expense',
+ ARRAY['hipoteca','crédito hipotecario','credito hipotecario','dividendo','mortgage']),
+('Crédito Consumo',            'credit-card',       '#8B5CF6', 'expense',
+ ARRAY['crédito consumo','credito consumo','préstamo consumo','prestamo consumo','cuota consumo']),
+('Crédito Automotriz',         'car',               '#A78BFA', 'expense',
+ ARRAY['crédito auto','credito auto','crédito automotriz','credito automotriz','cuota auto','leasing']),
+('TDC',                        'wallet',            '#EC4899', 'expense',
+ ARRAY['tdc','tarjeta de crédito','tarjeta de credito','tarjeta credito','visa','mastercard','amex']),
+-- Transporte
+('Transporte',                 'car',               '#3B8BD4', 'expense',
+ ARRAY['uber','didi','cabify','taxi','metro','bip','tag','peaje']),
+('Estacionamiento',            'parking-square',    '#64748B', 'expense',
+ ARRAY['estacionamiento','parking','parqueo']),
+('Combustible',                'fuel',              '#F59E0B', 'expense',
+ ARRAY['bencina','combustible','copec','shell','enex','petróleo','petroleo']),
+-- Otros
+('Salud',                      'heart-pulse',       '#5DCAA5', 'expense',
+ ARRAY['farmacia','farmacias ahumada','cruz verde','salcobrand','remedio','medicamento','doctor','médico','medico','clínica','clinica','dental','isapre','fonasa']),
+('Entretenimiento',            'film',              '#7F77DD', 'expense',
+ ARRAY['netflix','spotify','disney','hbo','prime video','cine','cinemark','hoyts','concierto','teatro','steam','playstation']),
+('Ropa',                       'shirt',             '#D4537E', 'expense',
+ ARRAY['ropa','zapatos','zapatillas','camisa','vestido','h&m','zara','falabella','paris','ripley','hites']),
+('Otros',                      'package',           '#5F5E5A', 'both',   ARRAY[]::text[]);
