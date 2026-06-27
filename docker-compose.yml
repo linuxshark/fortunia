@@ -1,127 +1,78 @@
-x-common-variables: &common-variables
-  TZ: America/Santiago
-  PYTHONUNBUFFERED: 1
+# Token-free boleta scanner — Postgres + OCR worker (Tesseract) + pgAdmin + backup.
+# OCR engine is Tesseract (container-friendly); openclaw POSTs photos to the
+# worker at http://worker:8000/ocr (or localhost:8000 from the host).
+# See docs/03-architecture.md.
 
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: fortunia-db
+  worker:
+    build: ./worker
+    restart: unless-stopped
+    env_file: .env
     environment:
-      <<: *common-variables
-      POSTGRES_USER: fortunia
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: fortunia
+      POSTGRES_HOST: postgres        # reach Postgres over the compose network
+      IMAGE_STORE: /app/data/images
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${OCR_PORT:-8000}:8000"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./api/sql:/docker-entrypoint-initdb.d:ro
+      - ./data/images:/app/data/images
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # DDL + seed run once, on first cluster init, in filename order:
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fortunia -d fortunia"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - fortunia-net
-    restart: unless-stopped
+      start_period: 30s
 
-  fortunia-api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: fortunia-api
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
     environment:
-      <<: *common-variables
-      DATABASE_URL: postgresql+psycopg://fortunia:${DB_PASSWORD}@db:5432/fortunia
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      DEFAULT_CURRENCY: CLP
-      DEFAULT_USER_ID: user
-      LOG_LEVEL: INFO
-      OCR_URL: http://ocr-service:8001
-      WHISPER_URL: http://whisper-service:9000
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${PGADMIN_PORT:-5050}:80"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    volumes:
-      - ./api:/app
-      - ./data/uploads:/app/data/uploads
-    networks:
-      - fortunia-net
-    restart: unless-stopped
 
-  ocr-service:
-    build:
-      context: ./ocr-service
-      dockerfile: Dockerfile
-    container_name: ocr-service
-    environment:
-      <<: *common-variables
-    ports:
-      - "127.0.0.1:8001:8001"
-    volumes:
-      - ./data/uploads:/app/uploads
-    networks:
-      - fortunia-net
+  db-backup:
+    image: postgres:16
     restart: unless-stopped
-
-  whisper-service:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    container_name: whisper-service
     environment:
-      <<: *common-variables
-      ASR_MODEL: ${ASR_MODEL:-small}
-      ASR_ENGINE: ${ASR_ENGINE:-faster_whisper}
-    ports:
-      - "127.0.0.1:9000:9000"
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      PGHOST: postgres
     volumes:
-      - ./data/uploads:/app/uploads
-    networks:
-      - fortunia-net
-    restart: unless-stopped
-
-  dashboard:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    container_name: fortunia-dashboard
-    environment:
-      <<: *common-variables
-      FORTUNIA_API_URL: http://fortunia-api:8000
-      FORTUNIA_API_KEY: ${INTERNAL_API_KEY}
-    ports:
-      - "0.0.0.0:3000:3000"
+      - ./backups:/backups
+    # nightly pg_dump; prune dumps older than 30 days
+    entrypoint: >
+      bash -c "while true; do
+        sleep 86400;
+        pg_dump | gzip > /backups/$$(date +%%Y%%m%%d-%%H%%M%%S).sql.gz;
+        find /backups -name '*.sql.gz' -mtime +30 -delete;
+      done"
     depends_on:
-      - fortunia-api
-    networks:
-      - fortunia-net
-    restart: unless-stopped
-
-  backup-service:
-    image: prodrigestivill/postgres-backup-local:latest
-    container_name: fortunia-backup
-    environment:
-      <<: *common-variables
-      POSTGRES_HOST: db
-      POSTGRES_DB: fortunia
-      POSTGRES_USER: fortunia
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      BACKUP_DIR: /backups
-      BACKUP_KEEP_DAYS: 7
-      BACKUP_KEEP_WEEKS: 4
-      BACKUP_KEEP_MONTHS: 12
-    volumes:
-      - ./data/backups:/backups
-    depends_on:
-      - db
-    networks:
-      - fortunia-net
-    restart: unless-stopped
-
-networks:
-  fortunia-net:
-    driver: bridge
+      postgres:
+        condition: service_healthy
 
 volumes:
-  postgres_data:
+  pgdata:

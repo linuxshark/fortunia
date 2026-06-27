@@ -1,1 +1,0 @@
-"""Delegators for Kraken → Fortunia."""

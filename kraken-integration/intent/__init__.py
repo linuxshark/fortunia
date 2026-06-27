@@ -1,1 +1,0 @@
-"""Intent detection for Kraken."""
