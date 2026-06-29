@@ -66,11 +66,22 @@ def _overview_ctx(request: Request, month: str | None) -> dict:
     months = q.months_available()
     month = resolve_month(month, months)
     cats = q.category_breakdown(month)
+    inc_kpis = q.income_kpis(month)
+    inc_cats = q.income_by_category(month)
+    expense_kpis = q.kpis(month)
+    inc_total = float(inc_kpis["total"])
+    exp_total = float(expense_kpis["total"])
+    balance_pct = int(100 * exp_total / inc_total) if inc_total > 0 else 0
     return {
         "request": request,
         "month": month,
         "months": months,
-        "kpis": q.kpis(month),
+        "kpis": expense_kpis,
+        "income_kpis": inc_kpis,
+        "income_categories": inc_cats,
+        "income_chart_labels": [c["category"] for c in inc_cats],
+        "income_chart_data": [float(c["total"]) for c in inc_cats],
+        "balance_pct": min(balance_pct, 100),
         "categories": cats,
         "merchants": q.top_merchants(month),
         "receipts": q.recent_receipts(month),
@@ -112,6 +123,18 @@ def receipt(request: Request, receipt_id: int):
     header, items = q.receipt_detail(receipt_id)
     return templates.TemplateResponse(request, "receipt.html", {
         "request": request, "header": header, "items": items,
+    })
+
+
+@app.get("/incomes", response_class=HTMLResponse)
+def incomes(request: Request, month: str | None = None):
+    months = q.months_available()
+    month = resolve_month(month, months)
+    rows = q.recent_incomes(month)
+    total = sum(float(r["amount"] or 0) for r in rows)
+    return templates.TemplateResponse(request, "incomes.html", {
+        "request": request, "month": month, "months": months,
+        "rows": rows, "total": total,
     })
 
 
