@@ -1,15 +1,15 @@
 """Gemini Vision fallback para extracción cuando Tesseract falla o tiene baja confianza.
 
-Usa gemini-1.5-flash (multimodal) para extraer el JSON completo de la boleta.
+Usa gemini-2.5-flash (multimodal) para extraer el JSON completo de la boleta.
 Devuelve el mismo dict que extract_from_bytes para ser drop-in replacement.
 """
 from __future__ import annotations
 
-import base64
 import hashlib
 import io
 import json
 import re
+from datetime import date
 
 from normalize import parse_date
 from validate import validate
@@ -66,7 +66,7 @@ def gemini_extract(raw: bytes, source_image_path: str | None = None) -> dict:
     from config import settings
 
     genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     img = PIL.Image.open(io.BytesIO(raw))
     response = model.generate_content([_PROMPT, img])
@@ -105,6 +105,8 @@ def gemini_extract(raw: bytes, source_image_path: str | None = None) -> dict:
     issued = None
     if data.get("issued_date"):
         issued = parse_date(str(data["issued_date"]))
+    if issued is None:
+        issued = date.today()
 
     header = {
         "rut_emisor":    data.get("rut_emisor"),
@@ -127,7 +129,7 @@ def gemini_extract(raw: bytes, source_image_path: str | None = None) -> dict:
         **header,
         "image_sha256":      sha,
         "source_image_path": source_image_path,
-        "ocr_engine":        "gemini-1.5-flash",
+        "ocr_engine":        "gemini-2.5-flash",
         "ocr_confidence":    95.0,
         "ocr_raw_text":      raw_json,
         "line_items":        items,

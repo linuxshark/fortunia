@@ -87,7 +87,7 @@ WITH RECURSIVE roots AS (
   SELECT c.id, r.root_id, r.root_name
   FROM categories c JOIN roots r ON c.parent_id = r.id
 )
-SELECT date_trunc('month', rc.issued_date)::date AS month,
+SELECT date_trunc('month', COALESCE(rc.issued_date, rc.created_at::date))::date AS month,
        COALESCE(r.root_name, 'Sin categoria')    AS category,
        SUM(li.line_total)                         AS total
 FROM line_items li
@@ -98,7 +98,7 @@ ORDER BY 1 DESC, 3 DESC;
 
 CREATE OR REPLACE VIEW v_spend_by_merchant AS
 SELECT m.name AS merchant,
-       date_trunc('month', rc.issued_date)::date AS month,
+       date_trunc('month', COALESCE(rc.issued_date, rc.created_at::date))::date AS month,
        SUM(rc.total) AS total
 FROM receipts rc
 LEFT JOIN merchants m ON m.id = rc.merchant_id

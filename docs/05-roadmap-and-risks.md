@@ -19,7 +19,7 @@ Seed `categories` + `item_aliases` (diccionario vacío, poblar con datos reales)
 **Próximo paso:** poblar `item_aliases` con los ítems de `v_uncategorized_items`.
 
 ### Phase 5 — Gemini Vision fallback ✅ Completo
-Escalación automática cuando Tesseract confianza < 65% o ítems < 20 y validación falla. Gemini 1.5 Flash Vision, prompt estructurado, ~$0.0002/foto. `GEMINI_API_KEY` vacío = offline-only. Reemplaza el plan original de fine-tune Donut.
+Escalación automática cuando Tesseract confianza < 65% o ítems < 20 y validación falla. Gemini 2.5 Flash Vision, prompt estructurado, ~$0.0002/foto. `GEMINI_API_KEY` vacío = offline-only. Reemplaza el plan original de fine-tune Donut.
 
 ## Risks
 

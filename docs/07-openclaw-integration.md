@@ -18,7 +18,7 @@ Telegram user ──foto──▶ openclaw (Mac mini)
 ```
 
 - El worker es idempotente: misma foto → `status: "duplicate"`.
-- `ocr_engine` en la respuesta indica qué motor se usó: `"tesseract"` o `"gemini-1.5-flash"`.
+- `ocr_engine` en la respuesta indica qué motor se usó: `"tesseract"` o `"gemini-2.5-flash"`.
 - La API key de Gemini del worker (`GEMINI_API_KEY` en `.env`) es la misma que openclaw ya tiene configurada — son independientes, cada proceso la carga por su cuenta.
 
 ## Handler snippet (python-telegram-bot)
@@ -42,7 +42,7 @@ async def on_photo(update, context):
         await update.message.reply_text("Ya tenía esa boleta 👍")
         return
 
-    engine_tag = " 🤖" if d.get("ocr_engine") == "gemini-1.5-flash" else ""
+    engine_tag = " 🤖" if d.get("ocr_engine") == "gemini-2.5-flash" else ""
     lines = [
         f"🧾 {d.get('merchant') or 'Boleta'}{engine_tag}  (folio {d.get('folio') or '?'})",
         f"📅 {d.get('issued_date') or '?'}   💰 ${d.get('total') or '?':,}",
@@ -62,7 +62,7 @@ async def on_photo(update, context):
   "sha256": "a446e3…",
   "header_source": "ocr",
   "ted_decoded": false,
-  "ocr_engine": "gemini-1.5-flash",
+  "ocr_engine": "gemini-2.5-flash",
   "merchant": "UNIMARC",
   "rut_emisor": "76.123.456-7",
   "folio": "1804603542430",
@@ -79,7 +79,7 @@ Campos clave:
 | Campo | Valor | Significado |
 |---|---|---|
 | `status` | `"stored"` / `"duplicate"` | primera vez o repetida |
-| `ocr_engine` | `"tesseract"` / `"gemini-1.5-flash"` | qué motor extrajo |
+| `ocr_engine` | `"tesseract"` / `"gemini-2.5-flash"` | qué motor extrajo |
 | `items` | entero | ítems de línea persistidos en `line_items` |
 | `validation_status` | `"ok"` / `"review"` | si la aritmética cuadra |
 | `problems` | lista de strings | qué falló en validación |
