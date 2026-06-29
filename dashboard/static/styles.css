@@ -47,3 +47,30 @@ table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .filters { grid-template-columns: 1fr 1fr auto; gap: .75rem; margin-bottom: 1rem; align-items: end; }
 @media (max-width: 600px) { .filters { grid-template-columns: 1fr; } }
+
+/* Income bar */
+.income-bar { border-left: 4px solid #16a34a; margin-bottom: 1rem; }
+.income-bar-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem;
+}
+.income-total { font-size: 1.4rem; font-weight: 700; color: #16a34a; }
+.income-chart-wrap { position: relative; height: 56px; margin: .5rem 0; }
+.income-table { margin-top: .5rem; }
+.income-table td { padding: .25rem .5rem; }
+
+/* Balance card */
+.balance-card { margin-bottom: 1.5rem; }
+.balance-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1rem; margin-bottom: .75rem; text-align: center;
+}
+.balance-item { display: flex; flex-direction: column; gap: .2rem; }
+.income-side strong { color: #16a34a; font-size: 1.1rem; }
+.expense-side strong { color: #dc2626; font-size: 1.1rem; }
+.balance-bar-wrap {
+  height: 10px; background: #16a34a; border-radius: 5px; overflow: hidden;
+}
+.balance-bar-fill {
+  height: 100%; background: #dc2626; border-radius: 5px;
+  transition: width .4s ease; min-width: 0;
+}

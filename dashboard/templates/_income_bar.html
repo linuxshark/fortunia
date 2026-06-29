@@ -1,0 +1,69 @@
+{# dashboard/templates/_income_bar.html #}
+<article class="income-bar">
+  <header class="income-bar-header">
+    <strong>Ingresos del mes</strong>
+    <span class="income-total">{{ income_kpis.total | clp }}</span>
+  </header>
+  {% if income_categories %}
+    <div class="income-chart-wrap">
+      <canvas id="incomeChart"></canvas>
+    </div>
+    <script id="incomeData" type="application/json">
+      {"labels": {{ income_chart_labels | tojson }}, "data": {{ income_chart_data | tojson }}}
+    </script>
+    <script>
+      (function () {
+        var el = document.getElementById('incomeChart');
+        if (!el || !window.Chart) return;
+        if (window._incomeChart) window._incomeChart.destroy();
+        var d = JSON.parse(document.getElementById('incomeData').textContent);
+        var palette = ['#16a34a', '#0891b2', '#7c3aed', '#ca8a04', '#db2777'];
+        window._incomeChart = new Chart(el, {
+          type: 'bar',
+          data: {
+            labels: [''],
+            datasets: d.labels.map(function (lbl, i) {
+              return {
+                label: lbl,
+                data: [d.data[i]],
+                backgroundColor: palette[i % palette.length],
+                borderWidth: 0
+              };
+            })
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right' },
+              tooltip: {
+                callbacks: {
+                  label: function (ctx) {
+                    return ' $' + Math.round(ctx.parsed.x).toLocaleString('es-CL');
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { stacked: true, display: false },
+              y: { stacked: true, display: false }
+            }
+          }
+        });
+      })();
+    </script>
+    <table class="income-table">
+      <tbody>
+        {% for c in income_categories %}
+        <tr>
+          <td>{{ c.category }}</td>
+          <td class="num">{{ c.total | clp }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Sin ingresos registrados este mes.</p>
+  {% endif %}
+</article>

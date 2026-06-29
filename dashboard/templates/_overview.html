@@ -1,6 +1,34 @@
+{# dashboard/templates/_overview.html #}
+
+{# 1. Income bar — data-driven, only renders categories with data #}
+{% include "_income_bar.html" %}
+
+{# 2. Balance card #}
+<article class="balance-card">
+  <header><strong>Balance mensual</strong></header>
+  <div class="balance-grid">
+    <div class="balance-item income-side">
+      <small class="muted">Ingresos</small>
+      <strong>{{ income_kpis.total | clp }}</strong>
+    </div>
+    <div class="balance-item expense-side">
+      <small class="muted">Gastos</small>
+      <strong>{{ kpis.total | clp }}</strong>
+    </div>
+    <div class="balance-item">
+      <small class="muted">Ahorro</small>
+      <strong>{{ (100 - balance_pct) }}%</strong>
+    </div>
+  </div>
+  <div class="balance-bar-wrap" title="Gastos vs Ingresos">
+    <div class="balance-bar-fill" style="width: {{ balance_pct }}%"></div>
+  </div>
+</article>
+
+{# 3. KPIs — expense summary #}
 <section class="kpis grid">
   <article class="kpi">
-    <small class="muted">Total del mes</small>
+    <small class="muted">Total gastos mes</small>
     <h2>{{ kpis.total | clp }}</h2>
   </article>
   <article class="kpi">
@@ -13,6 +41,7 @@
   </article>
 </section>
 
+{# 4. Category chart + table #}
 <div class="grid cols-2">
   <article>
     <header><strong>Gasto por categoría</strong></header>
@@ -61,6 +90,7 @@
   </article>
 </div>
 
+{# 5. Top merchants + recent receipts #}
 <div class="grid cols-2">
   <article>
     <header><strong>Top comercios</strong></header>
