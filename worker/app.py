@@ -12,7 +12,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 import db
-from categorize import categorize
+from categorize import categorize, categorize_income
+from text_income import parse_income
 from config import settings
 from extractor import extract_from_bytes
 from text_expense import ParseError, parse_expense
@@ -117,4 +118,35 @@ def text_expense(payload: TextExpense) -> dict:
         "category": norm or parsed["category_text"],
         "category_source": source,
         "issued_date": str(result["issued_date"]),
+    }
+
+
+class TextIncome(BaseModel):
+    text: str = Field(..., min_length=1, max_length=500)
+
+
+@app.post("/income")
+def income_text(payload: TextIncome) -> dict:
+    """Registra ingreso desde texto libre ("cobré 5.000.000 de sueldo").
+
+    Parsea monto + fuente, categoriza contra aliases de ingresos,
+    persiste en tabla incomes. Sin paso por OCR.
+    """
+    try:
+        parsed = parse_income(payload.text)
+    except ParseError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Pass full raw text — verb-based aliases (vendí, sueldo) need it
+    cat_id, norm, source = categorize_income(parsed["raw"])
+    income_id, _ = db.persist_income(parsed, cat_id)
+    return {
+        "status": "stored",
+        "income_id": income_id,
+        "amount": parsed["amount"],
+        "source_text": parsed["source_text"],
+        "category_id": cat_id,
+        "category": norm or parsed["source_text"],
+        "category_source": source,
+        "issued_date": str(date.today()),
     }
