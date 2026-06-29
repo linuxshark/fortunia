@@ -98,3 +98,24 @@ def persist(result: dict) -> tuple[int | None, bool]:
         except errors.UniqueViolation:
             conn.rollback()
             return None, False               # same rut+folio+doc_type already stored
+
+
+def persist_income(parsed: dict, category_id: int | None) -> tuple[int, bool]:
+    """Insert a row into incomes. No idempotency — same income on different days is valid."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO incomes (category_id, amount, source_text, raw_text, issued_date)
+            VALUES (%(category_id)s, %(amount)s, %(source_text)s, %(raw_text)s, CURRENT_DATE)
+            RETURNING id
+            """,
+            {
+                "category_id": category_id,
+                "amount": parsed["amount"],
+                "source_text": parsed["source_text"],
+                "raw_text": parsed["raw"],
+            },
+        )
+        income_id = cur.fetchone()["id"]
+        conn.commit()
+    return income_id, True
