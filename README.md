@@ -89,6 +89,37 @@ openclaw ya hace `POST http://localhost:8002/ocr` con la foto. No requiere cambi
 
 Ver [`docs/07-openclaw-integration.md`](docs/07-openclaw-integration.md) para el handler completo.
 
+## Dashboard web (:8001)
+
+Capa de visualización server-rendered (FastAPI + Jinja2 + HTMX + Chart.js), **solo
+lectura**: conecta a Postgres con el rol `fortunia_ro` (least privilege) y nunca escribe.
+El worker (`:8002`) sigue siendo el único que ingiere boletas.
+
+```
+worker     :8002   escribe (POST /ocr)
+dashboard  :8001   lee (gasto por categoría + detalle de boletas)
+                   └─ rol fortunia_ro (SELECT-only) → Postgres
+```
+
+Vistas:
+- `/` — KPIs del mes (total, nº boletas, nº ítems), donut de gasto por categoría, top
+  comercios y boletas recientes. Selector de mes (HTMX, sin recarga).
+- `/category/<categoría>` — todos los ítems de esa categoría en el mes.
+- `/receipt/<id>` — detalle de boleta: fecha, comercio, folio, totales, validación,
+  imagen original y tabla de ítems (descripción, cantidad, precio).
+- `/expenses` — lista de gastos (line items) filtrable por mes y categoría.
+
+```bash
+# 1. agregar al .env: DASHBOARD_PORT, POSTGRES_RO_USER, POSTGRES_RO_PASSWORD (ver .env.example)
+make ro-role        # crea el rol read-only en la DB ya existente (idempotente)
+make dashboard      # build + up del servicio dashboard
+curl http://localhost:8001/health      # {"ok":true,"db":true}
+open http://localhost:8001/
+```
+
+> En un cluster Postgres nuevo, `db/03_ro_role.sh` crea el rol automáticamente en el
+> primer init. `make ro-role` es sólo para bases ya inicializadas.
+
 ## Análisis de gastos (SQL directo)
 
 ```sql

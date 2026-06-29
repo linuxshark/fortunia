@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Gastos · fortunia{% endblock %}
+{% block content %}
+<header class="page-head">
+  <hgroup>
+    <h1>Gastos</h1>
+    <p class="muted">{{ rows | length }} ítems · total {{ total | clp }}</p>
+  </hgroup>
+</header>
+
+<article>
+  <form method="get" action="/expenses" class="filters grid">
+    <select name="month" aria-label="Mes">
+      {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>{% endfor %}
+      {% if month not in months %}<option value="{{ month }}" selected>{{ month }}</option>{% endif %}
+    </select>
+    <select name="category" aria-label="Categoría">
+      <option value="">Todas las categorías</option>
+      {% for c in all_categories %}<option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+    <button type="submit">Filtrar</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Comercio</th><th>Producto</th><th>Categoría</th>
+          <th class="num">Cant.</th><th class="num">P. unit</th><th class="num">Total</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.issued_date }}</td>
+        <td><a href="/receipt/{{ r.receipt_id }}">{{ r.merchant }}</a></td>
+        <td>{{ r.normalized_name or r.raw_text or '—' }}</td>
+        <td><span class="dot" style="background:{{ color_for(r.category) }}"></span>{{ r.category }}</td>
+        <td class="num">{{ r.qty }}</td>
+        <td class="num">{{ r.unit_price | clp }}</td>
+        <td class="num">{{ r.line_total | clp }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">Sin gastos con estos filtros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endblock %}

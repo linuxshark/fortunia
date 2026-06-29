@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 WORKER_URL := http://localhost:8002
+DASHBOARD_URL := http://localhost:8001
 
 # ── bootstrap ─────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,19 @@ rebuild:
 	$(COMPOSE) build --no-cache worker
 	$(COMPOSE) up -d
 	@$(MAKE) --no-print-directory wait-ready
+
+## dashboard: build + (re)start sólo el dashboard web (:8001)
+.PHONY: dashboard
+dashboard: .env
+	$(COMPOSE) up -d --build dashboard
+	@$(MAKE) --no-print-directory wait-dashboard
+
+## ro-role: crea/actualiza el rol de solo-lectura en la DB existente (idempotente)
+.PHONY: ro-role
+ro-role:
+	@set -a; . ./.env; set +a; \
+	$(COMPOSE) exec -T -e POSTGRES_RO_USER="$$POSTGRES_RO_USER" -e POSTGRES_RO_PASSWORD="$$POSTGRES_RO_PASSWORD" \
+		postgres bash /docker-entrypoint-initdb.d/03_ro_role.sh
 
 # ── lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -72,10 +86,29 @@ wait-ready:
 	done; \
 	echo "✗ Worker no respondió en 60s. Ver: make logs-worker" && exit 1
 
+## wait-dashboard: espera hasta que el dashboard responde /health
+.PHONY: wait-dashboard
+wait-dashboard:
+	@echo "Esperando dashboard..."
+	@for i in $$(seq 1 30); do \
+		if curl -sf $(DASHBOARD_URL)/health > /dev/null 2>&1; then \
+			echo "✓ Dashboard listo: $$(curl -s $(DASHBOARD_URL)/health)"; \
+			echo "  Abrir: $(DASHBOARD_URL)/"; \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "✗ Dashboard no respondió en 60s. Ver: make logs-dashboard" && exit 1
+
 ## health: consulta /health del worker
 .PHONY: health
 health:
 	@curl -s $(WORKER_URL)/health | python3 -m json.tool
+
+## health-dashboard: consulta /health del dashboard
+.PHONY: health-dashboard
+health-dashboard:
+	@curl -s $(DASHBOARD_URL)/health | python3 -m json.tool
 
 ## status: estado de todos los containers
 .PHONY: status
@@ -93,6 +126,11 @@ logs:
 .PHONY: logs-worker
 logs-worker:
 	$(COMPOSE) logs --tail=100 -f worker
+
+## logs-dashboard: logs del dashboard web
+.PHONY: logs-dashboard
+logs-dashboard:
+	$(COMPOSE) logs --tail=100 -f dashboard
 
 ## logs-db: logs de postgres
 .PHONY: logs-db

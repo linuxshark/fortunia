@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Boleta #{{ header.id if header else '?' }} · fortunia{% endblock %}
+{% block content %}
+{% if not header %}
+  <article><p>Boleta no encontrada. <a href="/">← Resumen</a></p></article>
+{% else %}
+<header class="page-head">
+  <hgroup>
+    <h1>{{ header.merchant_name }}</h1>
+    <p class="muted">Boleta #{{ header.id }} · {{ header.issued_date or 'sin fecha' }} · <a href="/">← Resumen</a></p>
+  </hgroup>
+  <span class="badge badge-{{ header.validation_status }}">{{ header.validation_status }}</span>
+</header>
+
+<div class="grid cols-2">
+  <article>
+    <header><strong>Detalle</strong></header>
+    <dl class="meta">
+      <dt>Total</dt><dd><strong>{{ header.total | clp }}</strong></dd>
+      <dt>Neto</dt><dd>{{ header.net | clp }}</dd>
+      <dt>IVA</dt><dd>{{ header.tax | clp }}</dd>
+      <dt>Tipo doc</dt><dd>{{ header.doc_type or '—' }}{% if header.tipo_dte %} ({{ header.tipo_dte }}){% endif %}</dd>
+      <dt>Folio</dt><dd>{{ header.folio or '—' }}</dd>
+      <dt>RUT emisor</dt><dd>{{ header.rut_emisor or '—' }}</dd>
+      <dt>Comercio RUT</dt><dd>{{ header.merchant_rut or '—' }}</dd>
+      <dt>Fuente header</dt><dd>{{ header.header_source }}</dd>
+      <dt>Motor OCR</dt><dd>{{ header.ocr_engine or '—' }}</dd>
+    </dl>
+  </article>
+  <article>
+    <header><strong>Imagen original</strong></header>
+    {% if header.image_sha256 %}
+      <a href="/image/{{ header.image_sha256 }}" target="_blank">
+        <img class="receipt-img" src="/image/{{ header.image_sha256 }}" alt="boleta {{ header.id }}">
+      </a>
+    {% else %}
+      <p class="muted">Sin imagen.</p>
+    {% endif %}
+  </article>
+</div>
+
+<article>
+  <header><strong>Ítems ({{ items | length }})</strong></header>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Producto</th><th>Categoría</th><th class="num">Cant.</th>
+          <th class="num">P. unit</th><th class="num">Total</th></tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td class="num">{{ it.line_no }}</td>
+        <td>{{ it.normalized_name or it.raw_text or '—' }}
+          {% if it.normalized_name and it.raw_text %}<br><small class="muted">{{ it.raw_text }}</small>{% endif %}</td>
+        <td><span class="dot" style="background:{{ color_for(it.category) }}"></span>{{ it.category }}</td>
+        <td class="num">{{ it.qty }}</td>
+        <td class="num">{{ it.unit_price | clp }}</td>
+        <td class="num">{{ it.line_total | clp }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">Sin ítems.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endif %}
+{% endblock %}
