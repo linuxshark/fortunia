@@ -1,19 +1,23 @@
-data/
+# Python
 __pycache__/
-*.pyc
-.env
-node_modules/
-.next/
-*.log
+*.py[cod]
 .venv/
-dist/
-build/
-.DS_Store
+venv/
 *.egg-info/
 .pytest_cache/
-.mypy_cache/
 .ruff_cache/
-.coverage
-htmlcov/
-venv/
-env/
+
+# Env / secrets
+.env
+*.local
+
+# Data / images / backups (never commit receipts or dumps)
+data/images/*
+!data/images/.gitkeep
+backups/*
+!backups/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

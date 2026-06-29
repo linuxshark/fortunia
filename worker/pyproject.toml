@@ -1,0 +1,33 @@
+[project]
+name = "fortunia-worker"
+version = "0.2.0"
+description = "Token-free OCR worker for Chilean boletas/facturas (containerized, Tesseract)"
+requires-python = ">=3.11"
+
+# Canonical dep list is requirements.txt (used by the Dockerfile). Kept in sync here.
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "python-multipart>=0.0.9",
+  "psycopg[binary]>=3.2",
+  "pydantic-settings>=2.0",
+  "opencv-python-headless>=4.10",
+  "pillow>=10.0",
+  "scikit-image>=0.24",
+  "deskew>=1.5",
+  "zxing-cpp>=2.2",            # PDF417 TED decode (NOT pyzbar)
+  "lxml>=5.0",
+  "pytesseract>=0.3.13",      # OCR engine (container Tesseract)
+  "price-parser>=0.3",
+  "dateparser>=1.2",
+  "pypdfium2>=4.30",          # render PDF page -> image (CLI convenience)
+  # Phase 3 upgrades (install when needed):
+  # "invoice2data>=1.0",
+  # "paddleocr>=3.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest", "httpx"]
+
+[tool.ruff]
+line-length = 100

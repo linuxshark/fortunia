@@ -1,198 +1,176 @@
-.PHONY: help install start stop restart logs status \
-        build build-dashboard build-api \
-        reset reset-db reset-uploads reset-backups restart-scratch \
-        backup shell-db add-user \
-        _start-fresh _confirm-reset _confirm-reset-db
+.DEFAULT_GOAL := help
+COMPOSE := docker compose
+WORKER_URL := http://localhost:8002
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Config
-# ──────────────────────────────────────────────────────────────────────────────
-COMPOSE  := docker compose
-DB_USER  := fortunia
-DB_NAME  := fortunia
+# ── bootstrap ─────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Default
-# ──────────────────────────────────────────────────────────────────────────────
-help:
-	@echo ""
-	@echo "  Fortunia — comandos disponibles"
-	@echo ""
-	@echo "  Servicios"
-	@echo "  ─────────────────────────────────────────────────────"
-	@echo "  make install          Instala y levanta todo (primera vez)"
-	@echo "  make start            Levanta los servicios"
-	@echo "  make stop             Detiene los servicios"
-	@echo "  make restart          Reinicia los servicios"
-	@echo "  make logs             Muestra logs en tiempo real"
-	@echo "  make status           Estado de los contenedores"
-	@echo ""
-	@echo "  Build (tras cambios de código)"
-	@echo "  ─────────────────────────────────────────────────────"
-	@echo "  make build            Reconstruye todas las imágenes"
-	@echo "  make build-dashboard  Reconstruye solo el dashboard"
-	@echo "  make build-api        Reconstruye solo la API"
-	@echo ""
-	@echo "  Base de datos"
-	@echo "  ─────────────────────────────────────────────────────"
-	@echo "  make backup         Crea un backup manual ahora"
-	@echo "  make shell-db       Abre psql interactivo"
-	@echo "  make add-user TELEGRAM_ID=123 NAME=\"Nombre\" KEY=123"
-	@echo "                      Registra un usuario en el filtro del dashboard"
-	@echo ""
-	@echo "  Reset  ⚠️  IRREVERSIBLE"
-	@echo "  ─────────────────────────────────────────────────────"
-	@echo "  make reset            Borra TODO (db + uploads + backups) y reinicia"
-	@echo "  make restart-scratch  Igual que reset pero sin confirmación interactiva"
-	@echo "  make reset-db         Borra solo la base de datos y reinicia"
-	@echo "  make reset-uploads    Borra solo los archivos subidos"
-	@echo "  make reset-backups    Borra solo los backups automáticos"
-	@echo ""
+.env:
+	@cp .env.example .env
+	@echo "⚠  .env creado desde .env.example — edita POSTGRES_PASSWORD y GEMINI_API_KEY antes de continuar"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Servicios
-# ──────────────────────────────────────────────────────────────────────────────
-install:
-	@bash install.sh
+## deploy: build + start all services (postgres first, then worker)
+.PHONY: deploy
+deploy: .env
+	$(COMPOSE) up -d --build
+	@$(MAKE) --no-print-directory wait-ready
 
+## up: start services without rebuilding
+.PHONY: up
+up: .env
+	$(COMPOSE) up -d
+	@$(MAKE) --no-print-directory wait-ready
+
+## build: rebuild worker image only
+.PHONY: build
 build:
-	$(COMPOSE) build fortunia-api ocr-service dashboard
+	$(COMPOSE) build worker
+
+## rebuild: full clean rebuild (no cache)
+.PHONY: rebuild
+rebuild:
+	$(COMPOSE) build --no-cache worker
 	$(COMPOSE) up -d
+	@$(MAKE) --no-print-directory wait-ready
 
-build-dashboard:
-	$(COMPOSE) build dashboard
-	$(COMPOSE) up -d dashboard
+# ── lifecycle ─────────────────────────────────────────────────────────────────
 
-build-api:
-	$(COMPOSE) build fortunia-api
-	$(COMPOSE) up -d fortunia-api
-
-start:
-	$(COMPOSE) up -d
-
+## stop: stop all services (keep data)
+.PHONY: stop
 stop:
+	$(COMPOSE) stop
+
+## down: stop + remove containers (keep volumes)
+.PHONY: down
+down:
 	$(COMPOSE) down
 
+## destroy: remove containers AND volumes (wipes DB data)
+.PHONY: destroy
+destroy:
+	@echo "AVISO: esto borra todos los datos de Postgres."
+	@read -p "¿Continuar? [s/N] " ans && [ "$$ans" = "s" ]
+	$(COMPOSE) down -v
+	@echo "Listo. Ejecuta 'make deploy' para empezar desde cero."
+
+## restart: restart worker only (without rebuild)
+.PHONY: restart
 restart:
-	$(COMPOSE) down
-	$(COMPOSE) up -d
+	$(COMPOSE) restart worker
 
-logs:
-	$(COMPOSE) logs -f
+# ── health & status ───────────────────────────────────────────────────────────
 
+## wait-ready: espera hasta que worker responde /health
+.PHONY: wait-ready
+wait-ready:
+	@echo "Esperando worker..."
+	@for i in $$(seq 1 30); do \
+		if curl -sf $(WORKER_URL)/health > /dev/null 2>&1; then \
+			echo "✓ Worker listo: $$(curl -s $(WORKER_URL)/health)"; \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "✗ Worker no respondió en 60s. Ver: make logs-worker" && exit 1
+
+## health: consulta /health del worker
+.PHONY: health
+health:
+	@curl -s $(WORKER_URL)/health | python3 -m json.tool
+
+## status: estado de todos los containers
+.PHONY: status
 status:
 	$(COMPOSE) ps
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Base de datos
-# ──────────────────────────────────────────────────────────────────────────────
+# ── logs ──────────────────────────────────────────────────────────────────────
+
+## logs: logs de todos los servicios (últimas 50 líneas)
+.PHONY: logs
+logs:
+	$(COMPOSE) logs --tail=50 -f
+
+## logs-worker: logs del worker OCR
+.PHONY: logs-worker
+logs-worker:
+	$(COMPOSE) logs --tail=100 -f worker
+
+## logs-db: logs de postgres
+.PHONY: logs-db
+logs-db:
+	$(COMPOSE) logs --tail=50 -f postgres
+
+# ── test & scan ───────────────────────────────────────────────────────────────
+
+## scan: escanear una boleta  →  make scan FILE=/ruta/boleta.jpg
+.PHONY: scan
+scan:
+	@[ -n "$(FILE)" ] || (echo "Uso: make scan FILE=/ruta/boleta.jpg" && exit 1)
+	@curl -s -X POST $(WORKER_URL)/ocr -F "image=@$(FILE)" | python3 -m json.tool
+
+## scan-test: escanea la imagen de prueba del repo (si existe)
+.PHONY: scan-test
+scan-test:
+	@TESTIMG=$$(ls data/images/*.bin 2>/dev/null | head -1); \
+	if [ -z "$$TESTIMG" ]; then \
+		echo "No hay imagen de prueba en data/images/. Usa: make scan FILE=<foto>"; \
+	else \
+		echo "Escaneando $$TESTIMG..."; \
+		curl -s -X POST $(WORKER_URL)/ocr \
+			-F "image=@$$TESTIMG" | python3 -m json.tool; \
+	fi
+
+# ── database ──────────────────────────────────────────────────────────────────
+
+## psql: abre consola psql en el container postgres
+.PHONY: psql
+psql:
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas}
+
+## receipts: muestra últimas 20 boletas registradas
+.PHONY: receipts
+receipts:
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} -c \
+		"SELECT r.id, r.issued_date, m.name AS merchant, r.total, r.items_count, r.validation_status, r.ocr_engine \
+		 FROM receipts r LEFT JOIN merchants m ON m.id = r.merchant_id \
+		 ORDER BY r.id DESC LIMIT 20;"
+
+## items: muestra ítems de la última boleta
+.PHONY: items
+items:
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} -c \
+		"SELECT li.line_no, li.normalized_name, li.qty, li.unit_price, li.line_total \
+		 FROM line_items li \
+		 WHERE li.receipt_id = (SELECT MAX(id) FROM receipts) \
+		 ORDER BY li.line_no;"
+
+## spend: gasto mensual por categoría
+.PHONY: spend
+spend:
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} -c \
+		"SELECT * FROM v_monthly_spend_by_category ORDER BY month DESC, total_spent DESC LIMIT 30;"
+
+## uncategorized: ítems sin categoría (para poblar item_aliases)
+.PHONY: uncategorized
+uncategorized:
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} -c \
+		"SELECT * FROM v_uncategorized_items LIMIT 30;"
+
+## backup: fuerza un pg_dump ahora (sin esperar el cron nocturno)
+.PHONY: backup
 backup:
-	@mkdir -p data/backups
-	@file="data/backups/manual_$$(date +%Y%m%d_%H%M%S).sql.gz"; \
-	 $(COMPOSE) exec db pg_dump -U $(DB_USER) $(DB_NAME) | gzip > "$$file"; \
-	 echo "✓ Backup guardado en $$file"
+	@mkdir -p backups
+	$(COMPOSE) exec -e PGPASSWORD=$${POSTGRES_PASSWORD} postgres \
+		pg_dump -U $${POSTGRES_USER:-boleta} $${POSTGRES_DB:-boletas} \
+		| gzip > backups/manual-$$(date +%Y%m%d-%H%M%S).sql.gz
+	@echo "Backup guardado en backups/"
 
-shell-db:
-	$(COMPOSE) exec db psql -U $(DB_USER) -d $(DB_NAME)
+# ── help ──────────────────────────────────────────────────────────────────────
 
-# Registrar un usuario  →  make add-user TELEGRAM_ID=757348065 NAME="Raúl Linares" KEY=757348065
-add-user:
-	@[ -n "$(TELEGRAM_ID)" ] || { echo "Uso: make add-user TELEGRAM_ID=<id> NAME=\"<nombre>\" KEY=<user_key>"; exit 1; }
-	@$(COMPOSE) exec db psql -U $(DB_USER) -d $(DB_NAME) -c \
-	  "INSERT INTO users (telegram_id, display_name, user_key) \
-	   VALUES ($(TELEGRAM_ID), '$(NAME)', '$(KEY)') \
-	   ON CONFLICT (telegram_id) DO UPDATE SET display_name = EXCLUDED.display_name, user_key = EXCLUDED.user_key, is_active = true;" && \
-	 echo "✓ Usuario '$(NAME)' registrado (telegram_id=$(TELEGRAM_ID))"
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Reset  ⚠️  IRREVERSIBLE
-# ──────────────────────────────────────────────────────────────────────────────
-reset: _confirm-reset
-	@echo "→ Deteniendo servicios y eliminando volumen de BD..."
-	@$(COMPOSE) down -v
-	@echo "→ Eliminando archivos subidos..."
-	@rm -rf data/uploads/*
-	@echo "→ Eliminando backups..."
-	@rm -rf data/backups/daily/* data/backups/weekly/* \
-	         data/backups/monthly/* data/backups/last/* \
-	         data/backups/manual_*.sql.gz 2>/dev/null; true
-	@echo "→ Recreando directorios..."
-	@mkdir -p data/{uploads,backups}
-	@$(MAKE) -s _start-fresh
+## help: lista todos los comandos disponibles
+.PHONY: help
+help:
+	@echo "fortunia — boleta scanner"
 	@echo ""
-	@echo "✓ Fortunia reiniciado desde cero."
+	@echo "Uso: make <comando>"
 	@echo ""
-	@echo "  ⚠️  Recuerda volver a registrar los usuarios:"
-	@echo "  make add-user TELEGRAM_ID=757348065 NAME=\"Raúl Linares\" KEY=757348065"
-
-reset-db: _confirm-reset-db
-	@echo "→ Deteniendo servicios y eliminando volumen de BD..."
-	@$(COMPOSE) down -v
-	@$(MAKE) -s _start-fresh
-	@echo ""
-	@echo "✓ Base de datos reiniciada. Uploads y backups intactos."
-	@echo ""
-	@echo "  ⚠️  Recuerda volver a registrar los usuarios:"
-	@echo "  make add-user TELEGRAM_ID=757348065 NAME=\"Raúl Linares\" KEY=757348065"
-
-restart-scratch:
-	@echo "⚠️  Eliminando todos los datos y reiniciando Fortunia desde cero..."
-	@$(COMPOSE) down -v
-	@rm -rf data/uploads/*
-	@rm -rf data/backups/daily/* data/backups/weekly/* \
-	         data/backups/monthly/* data/backups/last/* \
-	         data/backups/manual_*.sql.gz 2>/dev/null; true
-	@mkdir -p data/{uploads,backups}
-	@$(MAKE) -s _start-fresh
-	@echo ""
-	@echo "✓ Fortunia reiniciado desde cero."
-	@echo ""
-	@echo "  ⚠️  Recuerda volver a registrar los usuarios:"
-	@echo "  make add-user TELEGRAM_ID=757348065 NAME=\"Raúl Linares\" KEY=757348065"
-
-reset-uploads:
-	@read -p "⚠️  Eliminar todos los archivos subidos? [s/N] " ans; \
-	 [ "$$ans" = "s" ] || { echo "Cancelado."; exit 1; }
-	@rm -rf data/uploads/*
-	@echo "✓ Uploads eliminados."
-
-reset-backups:
-	@read -p "⚠️  Eliminar todos los backups? [s/N] " ans; \
-	 [ "$$ans" = "s" ] || { echo "Cancelado."; exit 1; }
-	@rm -rf data/backups/daily/* data/backups/weekly/* \
-	         data/backups/monthly/* data/backups/last/* \
-	         data/backups/manual_*.sql.gz 2>/dev/null; true
-	@echo "✓ Backups eliminados."
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers internos
-# ──────────────────────────────────────────────────────────────────────────────
-
-# Levanta db primero, espera a que esté healthy, luego el resto
-_start-fresh:
-	@echo "→ Iniciando base de datos..."
-	@$(COMPOSE) up -d db
-	@echo "→ Esperando a que Postgres inicialice y ejecute init.sql..."
-	@retries=60; \
-	 until $(COMPOSE) exec -T db pg_isready -U $(DB_USER) -d $(DB_NAME) -h 127.0.0.1 > /dev/null 2>&1; do \
-	   retries=$$((retries - 1)); \
-	   [ $$retries -eq 0 ] && { echo "✗ Postgres no respondió a tiempo."; exit 1; }; \
-	   printf "."; sleep 2; \
-	 done; echo " listo"
-	@echo "→ Levantando resto de servicios..."
-	@$(COMPOSE) up -d
-
-_confirm-reset:
-	@echo ""
-	@echo "  ⚠️  ADVERTENCIA: esto eliminará TODOS los datos de Fortunia."
-	@echo "  Base de datos, archivos subidos y backups serán borrados."
-	@echo ""
-	@read -p "  Escribe 'si' para confirmar: " ans; \
-	 [ "$$ans" = "si" ] || { echo "Cancelado."; exit 1; }
-
-_confirm-reset-db:
-	@echo ""
-	@echo "  ⚠️  ADVERTENCIA: esto eliminará la base de datos completa."
-	@echo ""
-	@read -p "  Escribe 'si' para confirmar: " ans; \
-	 [ "$$ans" = "si" ] || { echo "Cancelado."; exit 1; }
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## /  /' | column -t -s ':'
