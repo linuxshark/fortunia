@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     ocr_port: int = 8000
     image_store: str = "./data/images"   # absolute inside container (/app/data/images)
     tesseract_lang: str = "spa"
+    gemini_api_key: str = ""             # si vacío, no se usa Gemini
 
     @property
     def dsn(self) -> str:

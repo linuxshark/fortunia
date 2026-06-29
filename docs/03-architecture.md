@@ -1,16 +1,14 @@
-# 03 — Recommended Architecture
+# 03 — Architecture
 
-> **Build decision (2026-06-27):** the whole repo runs in **docker-compose** on the Mac mini, so the worker is **containerized** and OCR uses **Tesseract (`-l spa`)**, not Apple Vision (which is macOS-host-only). PaddleOCR remains the optional accuracy upgrade. The sections below describe the original recommendation; where they say "Apple Vision / host process", the shipped MVP substitutes containerized Tesseract. See `docker-compose.yml` (service `worker`), `worker/Dockerfile`, and [07-openclaw-integration.md](07-openclaw-integration.md).
-
-End-to-end **token-free** pipeline. Barcode-first; OCR fills the line-item gap; everything rule-based/local.
+Pipeline foto → boleta → Postgres. Containerizado, offline-first; Gemini como escalación de pago cuando Tesseract no alcanza.
 
 ## Pipeline overview
 
 ```
 Telegram photo
-   │  (openclaw bot, python-telegram-bot: photo[-1].get_file().download_to_memory())
+   │  (openclaw bot: photo[-1].get_file().download_to_memory())
    ▼
-POST /ocr (FastAPI worker, macOS host process)   ── compute image_sha256 (idempotency key)
+POST /ocr (FastAPI worker, docker-compose service)  ── compute image_sha256 (idempotency key)
    │
    ├─ Stage 1  Preprocess (OpenCV + Pillow + scikit-image): geometry → photometry
    │           ├─ grayscale/sharpened copy  ─────────────┐  (for barcode)
@@ -19,14 +17,15 @@ POST /ocr (FastAPI worker, macOS host process)   ── compute image_sha256 (id
    ├─ Stage 2  Barcode-first (zxing-cpp PDF417) ◄─────┼────┘
    │           parse <TED>/<DD> → verified header (RUT, folio, type, date, total, merchant)
    │                                                  │
-   ├─ Stage 3  OCR (Apple Vision → PaddleOCR → Tesseract) ◄─┘  text + word boxes
+   ├─ Stage 3  OCR (Tesseract PSM 4, OEM 1, spa) ◄───┘   text + confidence
+   │           └─ auto-escalación a Gemini 1.5 Flash si confianza < 65% o ítems < 20
    │
-   ├─ Stage 4  Extract: regex header anchors + positional bbox line-items + invoice2data templates
+   ├─ Stage 4  Extract: regex header anchors + ITEM_SEARCH_RE line-items
    │
-   ├─ Stage 5  Normalize (price-parser, dateparser) + categorize (item_aliases dict, ILIKE/regex)
+   ├─ Stage 5  Normalize (price-parser, dateparser) + categorize (item_aliases, ILIKE/regex)
    │
-   └─ Stage 6  Validate (arithmetic + SII checksums + TED MNT cross-check) → idempotent UPSERT into Postgres
-                   │ fail → manual-review queue back through the bot
+   └─ Stage 6  Validate (aritmética + TED MNT cross-check) → idempotent UPSERT Postgres
+                   │ fail → manual-review queue via bot
                    ▼
               Postgres (docker-compose)
 ```
@@ -34,64 +33,59 @@ POST /ocr (FastAPI worker, macOS host process)   ── compute image_sha256 (id
 ## Stage detail
 
 ### Stage 0 — Telegram intake
-- openclaw receives the photo; grab highest-res variant; download bytes to memory.
-- **Ingestion pattern: REST** (bot → `httpx.post("http://localhost:8000/ocr", files=...)`), called in an `asyncio` task so slow OCR never blocks the bot handler.
-- **Why REST** over shared-volume or Redis for single-node personal use: synchronous, trivially debuggable, no filesystem-as-queue races, no extra moving parts. Redis/RQ is the *upgrade path* only when durable retries / burst handling are needed.
+openclaw recibe la foto; download bytes a memoria; POST a `http://localhost:8002/ocr` en task asyncio para no bloquear el handler.
 
 ### Stage 1 — Preprocessing
-Order: geometry first (EXIF fix → quad detect → 4-point warp → deskew), photometry second (upscale → CLAHE → denoise → **Sauvola** binarize → white border → DPI tag). See [01 §4](01-discovery-prior-art.md#4-image-preprocessing-the-single-biggest-accuracy-driver). If no clean quad is found, process the whole frame rather than aborting.
+Orden: geometry (EXIF fix → deskew) → photometry (upscale → CLAHE → denoise → Sauvola binarize → white border → DPI tag). Si no hay quad limpio, procesar frame completo.
 
-### Stage 2 — Barcode-first (the Chilean key move)
-`zxing-cpp` PDF417 decode → parse TED → verified header fields, OCR-error-free, flagged `header_source='ted'`. See [02](02-chile-sii-dte.md). **Never use pyzbar for PDF417.**
+### Stage 2 — Barcode-first
+`zxing-cpp` PDF417 decode → parse TED → header verificado (RUT, folio, tipo, fecha, total, merchant), libre de errores OCR, `header_source='ted'`. **No usar pyzbar para PDF417.**
 
 ### Stage 3 — OCR
-- **Primary: Apple Vision via `ocrmac`**, `recognition_languages=['es-ES']`, accurate mode. Fastest, most robust on phone photos, zero install/model friction.
-- **Fallback: PaddleOCR** (classic PP-OCRv5/v6 + PP-Structure for table cells) for low-confidence images and portability. **Avoid PaddleOCR "VL" vision-LLM variants.**
-- Run on the binarized copy to recover the line-item table the TED omits.
+- **Primario: Tesseract** (`--psm 4 --oem 1 -l spa`). PSM 4 = columna única; OEM 1 = LSTM. ~60% confidence en fotos WhatsApp comprimidas.
+- **Escalación automática: Gemini 1.5 Flash Vision** cuando `conf < 65` OR `(items < 20 AND validation != "ok")`. Prompt estructurado → JSON completo. ~$0.0002/foto. `ocr_engine` en respuesta indica cuál se usó.
+- Si `GEMINI_API_KEY` vacío → Tesseract result siempre (fallback silencioso).
 
-### Stage 4 — Extraction (hybrid)
-- **Header regex anchors:** RUT (`\d{1,2}\.\d{3}\.\d{3}-[\dkK]` + mod-11), folio, fecha, `IVA 19%`, neto, TOTAL — reconciled against TED.
-- **Line items via positional reconstruction** from word boxes (Apple Vision boxes, or `pytesseract image_to_data` on the fallback path): filter `conf>60` → cluster rows by *y* → infer column *x*-bands → map `name | qty | unit_price | line_total`.
-- **Per-merchant `invoice2data` templates** for the top 3–5 stores (Líder, Jumbo, Santa Isabel, farmacias) using its field-based `lines` parser.
-- **PDF-factura branch:** emailed digital PDF → `invoice2data`; full DTE XML available → `cl-sii` (lossless, no OCR).
+### Stage 4 — Extraction
+- **Header regex anchors:** RUT (`\d{1,2}\.\d{3}\.\d{3}-[\dkK]` + mod-11), folio, fecha, IVA 19%, neto, TOTAL — reconciliado vs TED.
+- **Line items:** `ITEM_SEARCH_RE` (search, no match) sobre líneas preprocesadas; filtra barcodes, ratio letras ≥35%, ≥3 letras consecutivas; SKIP_WORDS para header/footer.
+- **Gemini path:** devuelve JSON estructurado con todos los ítems, misma forma que Tesseract path.
 
-### Stage 5 — Normalization & categorization
-- `price-parser` (`decimal_separator=','`), `dateparser` (`languages=['es']`, `DATE_ORDER='DMY'`, `STRICT_PARSING=True`).
-- Deterministic categorization via `item_aliases` dictionary matched with `ILIKE`/regex, first-match-by-priority. No LLM. See [04](04-database-schema.md).
+### Stage 5 — Normalización & categorización
+`price-parser` (separador miles `.`, decimales `,`), `dateparser` (`languages=['es']`, `DATE_ORDER='DMY'`). Categorización determinista via `item_aliases` con `ILIKE`/regex, primer match por prioridad.
 
-### Stage 6 — Validation & insert
-- Checks: `qty*unit_price==line_total` (±rounding), `sum(line_totals)+IVA==total`, `neto*1.19≈total`, RUT mod-11, **OCR total == TED `MNT`**.
-- Fail/low-confidence → manual-review queue via bot (never silently insert bad financial rows).
-- `INSERT ... ON CONFLICT (image_sha256) DO NOTHING`; secondary unique `(rut_emisor, folio, doc_type)`; insert `line_items` only when the receipt row is newly created → fully retryable.
+### Stage 6 — Validación & insert
+- Checks: `qty*unit_price==line_total` (±redondeo), `sum(line_totals)+IVA==total`, `neto*1.19≈total`, RUT mod-11, **OCR total == TED MNT**.
+- Fallo → manual-review queue via bot (nunca insertar filas financieras sin validar).
+- `INSERT ... ON CONFLICT (image_sha256) DO NOTHING`; secundario unique `(rut_emisor, folio, doc_type)`.
 
-## OCR engine recommendation (justified)
+## OCR engine summary
 
-**Apple Vision (primary) + PaddleOCR (fallback), Tesseract last resort.** Given the Mac mini Apple Silicon constraint:
+| Engine | Velocidad | Costo | Accuracy boletas | Uso |
+|---|---|---|---|---|
+| Tesseract PSM 4 OEM 1 | ~1s | gratis | ~60% conf | siempre primero |
+| Gemini 1.5 Flash | ~5-10s | ~$0.0002/foto | ~95% | escalación automática |
 
-- **Apple Vision** — already in macOS (no downloads), ~130–210 ms/img on the Neural Engine, most robust on crumpled/noisy photos (it backs Live Text), good `es-ES`, returns boxes, fully offline. *Consequence: worker must be a **host process**, not a Linux container.*
-- **PaddleOCR** — Apache-2.0, Apple-Silicon optimized, strong table/cell extraction; portable escape hatch. Install friction on ARM is the reason it's fallback, not primary.
-- **Tesseract** (`-l spa`, `--psm 4/6`) — lightest/most portable, but most noise-sensitive; the floor, and the engine for a fully-containerized path if ever needed.
-- **Local models (Donut/LayoutLMv3/Ollama VLM)** — token-free but wrong for MVP. Donut is the best escalation (Phase 5); LayoutLMv3 is NonCommercial-licensed; VLMs are heavy, slow, non-deterministic.
+Tesseract primero. Gemini sólo cuando necesario. Costo mensual esperado < $1 USD para uso personal.
 
 ## docker-compose topology
 
 ```
 HOST (macOS, Apple Silicon)
-├── openclaw Telegram bot ........ existing; POSTs photo bytes over HTTP
-└── ocr-worker (FastAPI + uvicorn)  HOST PROCESS (NOT containerized)
-        Apple Vision (ocrmac) + OpenCV + zxing-cpp + invoice2data
-        + price-parser + dateparser + psycopg → connects to localhost:5432
-
-docker-compose.yml  (all native linux/arm64)
-├── postgres ...... postgres:16, named volume pgdata, pg_isready healthcheck,
-│                   port 5432 published so the host worker can connect
-├── pgadmin ....... pgAdmin 4 (light, arm64) for ad-hoc SQL  (pick this OR metabase)
-└── db-backup ..... cron sidecar: nightly pg_dump | gzip -> ./backups; prune >30d
+├── openclaw Telegram bot ........ existing; POST photo bytes → localhost:8002
+│
+docker-compose.yml
+├── worker ........ python:3.12-slim + tesseract-ocr-spa + zxing-cpp
+│                   FastAPI + uvicorn + Gemini SDK
+│                   port 8000 published; IMAGE_STORE=./data/images
+├── postgres ...... postgres:16, named volume pgdata, pg_isready healthcheck
+│                   port 5432 published
+├── pgadmin ....... pgAdmin 4 (arm64) para SQL ad-hoc  port 5050
+└── db-backup ..... cron: nightly pg_dump | gzip → ./backups; prunar >30d
 ```
 
-Notes:
-- **Worker = host process** because Apple Vision is unreachable from Linux containers. A fully-containerized alternative uses `python:3.12-slim-bookworm` (Debian, native arm64 wheels — **avoid alpine**, musl breaks OpenCV/numpy wheels) with `apt-get install tesseract-ocr tesseract-ocr-spa libzbar0 libgl1 libglib2.0-0` + `opencv-python-headless` — but loses Apple Vision.
-- Bot reaches worker at `host.docker.internal:8000` (if bot containerized) or `localhost:8000` (host process).
-- Healthcheck: `pg_isready -U $POSTGRES_USER -d $POSTGRES_DB`, interval 10s, retries 5, start_period 30s. Worker should retry-connect on startup.
-- Analysis UI: pgAdmin (light) to start; add Metabase only if you want dashboards and have ~1 GB+ RAM. Pick one.
-- Sizing: stack idles under ~1.5 GB RAM; OCR is CPU-bursty per photo; one worker handles daily personal volume.
+Notas:
+- Worker containerizado (linux/arm64). Apple Vision no disponible — reemplazado por Tesseract + Gemini.
+- Bot alcanza worker en `localhost:8002` (mismo host).
+- `GEMINI_API_KEY` en `.env`; si vacío, worker funciona offline-only con Tesseract.
+- Stack idle < 1.5 GB RAM; OCR es CPU-bursty por foto; un worker cubre volumen personal diario.

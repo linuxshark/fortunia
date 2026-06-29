@@ -14,13 +14,25 @@ RUT_RE = re.compile(r"\b\d{1,2}\.\d{3}\.\d{3}-[\dkK]\b")
 FOLIO_RE = re.compile(r"(?:FOLIO|N[º°o]?)\s*[:#]?\s*(\d{3,})", re.IGNORECASE)
 TOTAL_RE = re.compile(r"\bTOTAL\b[^\d]*([\d.\s]{2,})", re.IGNORECASE)
 NETO_RE = re.compile(r"\b(?:NETO|MONTO NETO)\b[^\d]*([\d.\s]{2,})", re.IGNORECASE)
-# IVA line shows the 19% rate before the amount; skip the rate, grab the amount
 IVA_RE = re.compile(r"\bIVA\b\s*(?:19\s*%?)?\D*([\d.]{2,})", re.IGNORECASE)
-# line: "<name> .... <amount>"  amount = CLP integer with thousands dots
-LINE_ITEM_RE = re.compile(r"^(?P<name>.+?\D)\s+\$?\s*(?P<amount>\d{1,3}(?:\.\d{3})+|\d{3,6})\s*$")
-SKIP_WORDS = ("TOTAL", "SUBTOTAL", "IVA", "NETO", "VUELTO", "EFECTIVO", "CAMBIO",
-              "FOLIO", "RUT", "R.U.T", "S.I.I", "SII", "DESCUENTO", "PROPINA",
-              "BOLETA", "FACTURA", "ELECTRONICA", "FECHA", "CAJA", "CAJERO")
+# Scan full text for CLP-format amounts (dot thousands separators)
+ALL_CLP_RE = re.compile(r"\b(\d{1,3}(?:\.\d{3}){1,3})\b")
+# 8+ consecutive digits = barcode; strip before item search
+BARCODE_RE = re.compile(r"\b\d{8,}\b")
+# Search (not match) for product name + price anywhere in a line
+ITEM_SEARCH_RE = re.compile(
+    r"(?P<name>[A-Za-záéíóúÁÉÍÓÚñÑ][A-Za-záéíóúÁÉÍÓÚñÑ0-9\s\.\-\']{1,35}?)"
+    r"\s+\$?\s*(?P<amount>(?:\d{1,3}[.,]){1,2}\d{3}|\d{4,6})",
+    re.UNICODE,
+)
+SKIP_WORDS = (
+    "TOTAL", "SUBTOTAL", "IVA", "NETO", "VUELTO", "EFECTIVO", "CAMBIO",
+    "FOLIO", "RUT", "R.U.T", "S.I.I", "SII", "DESCUENTO", "PROPINA",
+    "BOLETA", "FACTURA", "ELECTRONICA", "FECHA", "CAJA", "CAJERO",
+    "CODIGO", "TICKET", "TARJETA", "PREPAG", "DEBIT", "CREDIT",
+    "VENDEDOR", "SUCURSAL", "ATENCION", "CONICO",
+    "SUC:", "SUC ", "JULIO", "DIEZ",  # address line filter
+)
 
 
 def _first_valid_rut(text: str) -> str | None:
@@ -66,9 +78,20 @@ def extract_header(text: str, ted=None) -> dict:
         h["issued_date"] = parse_date(text)
 
     totals = [clp_to_int(x) for x in TOTAL_RE.findall(text)]
-    totals = [t for t in totals if t]
+    totals = [t for t in totals if t and t > 100]
+
+    # Fallback: scan whole text for CLP-format amounts; pick largest if TOTAL_RE missed
+    all_clp = [clp_to_int(m) for m in ALL_CLP_RE.findall(text)]
+    all_clp = [a for a in all_clp if a and a > 5_000]
+    if all_clp:
+        candidate = max(all_clp)
+        # use fallback if TOTAL_RE found nothing plausible or candidate is much larger
+        if not totals or candidate > max(totals) * 5:
+            totals = [candidate]
+
     if totals and not h["total"]:
-        h["total"] = max(totals)            # grand total = largest TOTAL line
+        h["total"] = max(totals)
+
     m = NETO_RE.search(text)
     if m:
         h["net"] = clp_to_int(m.group(1))
@@ -79,27 +102,46 @@ def extract_header(text: str, ted=None) -> dict:
 
 
 def extract_line_items(text: str) -> list[dict]:
-    """MVP single-line heuristic: name + trailing amount as line_total."""
+    """Search each line for name+price; strip barcodes first to reduce noise."""
     items: list[dict] = []
+    seen: set[tuple] = set()
     n = 0
     for raw in text.splitlines():
         line = raw.strip()
-        if len(line) < 4:
+        if len(line) < 5:
             continue
-        if any(w in line.upper() for w in SKIP_WORDS):
+        upper = line.upper()
+        if any(w in upper for w in SKIP_WORDS):
             continue
-        m = LINE_ITEM_RE.match(line)
+        # remove barcodes so regex doesn't anchor on them
+        cleaned = BARCODE_RE.sub(" ", line).strip()
+        if len(cleaned) < 4:
+            continue
+        m = ITEM_SEARCH_RE.search(cleaned)
         if not m:
             continue
-        amount = clp_to_int(m.group("amount"))
+        raw_amount_str = m.group("amount")
+        amount = clp_to_int(raw_amount_str)
         name = m.group("name").strip()
-        if amount is None or amount <= 0 or len(name) < 2:
+        if amount is None or amount < 200 or amount > 300_000:
             continue
+        if len(name) < 3:
+            continue
+        letter_count = sum(1 for c in name if c.isalpha())
+        if letter_count < 3 or letter_count / max(len(name), 1) < 0.35:
+            continue
+        # require at least one word of 3+ consecutive letters (filters garbage like "ES iz")
+        if not re.search(r'[A-Za-záéíóúÁÉÍÓÚñÑ]{3,}', name):
+            continue
+        key = (name[:15].upper(), amount)
+        if key in seen:
+            continue
+        seen.add(key)
         n += 1
         items.append({
             "line_no": n,
-            "raw_text": line,
-            "normalized_name": None,
+            "raw_text": line[:100],
+            "normalized_name": name[:50],
             "category_id": None,
             "category_source": "unmatched",
             "qty": 1,

@@ -1,8 +1,8 @@
 """Core extraction orchestrator — reused by scan.py (CLI) and app.py (/ocr).
 
 bytes -> preprocess -> barcode(TED) -> OCR(Tesseract) -> header+items ->
-categorize -> validate -> result dict. Pure of DB writes (persistence lives in
-db.persist). Categorization is best-effort and degrades if the DB is down.
+categorize -> validate -> result dict. Si la calidad es baja, escala a Gemini.
+Pure of DB writes (persistence lives in db.persist).
 """
 from __future__ import annotations
 
@@ -24,10 +24,38 @@ def _categorize(items: list[dict]) -> None:
         try:
             cat_id, norm, source = categorize(it["raw_text"])
             it["category_id"] = cat_id
-            it["normalized_name"] = norm
+            if norm:  # keep OCR name when no alias match
+                it["normalized_name"] = norm
             it["category_source"] = source
         except Exception:
             pass
+
+
+def _needs_escalation(result: dict) -> bool:
+    """True si Tesseract no extrajo suficiente información de calidad."""
+    conf = result.get("ocr_confidence", 0)
+    items = result.get("line_items", [])
+    status = result.get("validation_status", "")
+    # confianza baja → siempre escalar
+    if conf < 65:
+        return True
+    # pocos ítems Y validación fallida → escalar
+    if len(items) < 20 and status != "ok":
+        return True
+    return False
+
+
+def _try_gemini(raw: bytes, source_image_path: str | None, fallback: dict) -> dict:
+    """Intenta extracción con Gemini; si falla devuelve el resultado de Tesseract."""
+    try:
+        from config import settings
+        if not settings.gemini_api_key:
+            return fallback
+        from gemini_ocr import gemini_extract
+        return gemini_extract(raw, source_image_path)
+    except Exception as exc:
+        fallback.setdefault("problems", []).append(f"gemini_fallback_failed: {exc}")
+        return fallback
 
 
 def extract_from_bytes(raw: bytes, source_image_path: str | None = None) -> dict:
@@ -43,7 +71,7 @@ def extract_from_bytes(raw: bytes, source_image_path: str | None = None) -> dict
 
     status, problems = validate(header, items)
 
-    return {
+    result = {
         **header,
         "image_sha256": sha,
         "source_image_path": source_image_path,
@@ -55,3 +83,8 @@ def extract_from_bytes(raw: bytes, source_image_path: str | None = None) -> dict
         "problems": problems,
         "ted_decoded": ted is not None,
     }
+
+    if _needs_escalation(result):
+        result = _try_gemini(raw, source_image_path, result)
+
+    return result

@@ -1,54 +1,106 @@
-# boleta-scanner
+# fortunia — boleta scanner
 
-Token-free pipeline: photo of a Chilean boleta/factura → Telegram (openclaw) → local Postgres for personal-finance analysis. No AI/LLM API tokens — classic OCR + SII barcode decode + rule-based extraction, offline, on a Mac mini.
+Foto de boleta chilena → Telegram (openclaw) → Postgres con detalle completo de ítems y gastos. Worker containerizado con Tesseract + fallback automático a Gemini Vision cuando la confianza OCR es baja.
 
-Full design in [`docs/`](docs/). Start with [`docs/README.md`](docs/README.md).
+## Estado actual (2026-06-28)
+
+| Phase | Estado |
+|---|---|
+| 0 — Plumbing (docker-compose + schema + POST /ocr) | ✅ Completo |
+| 1 — TED barcode (zxing-cpp PDF417) | ✅ Completo |
+| 2 — OCR + regex header (folio, fecha, total) | ✅ Completo |
+| 3 — Line items extracción | ✅ Completo (Tesseract regex + Gemini fallback) |
+| 4 — Categorización (`item_aliases`) | ✅ Estructurado (diccionario vacío, poblar con datos) |
+| 5 — Gemini Vision fallback automático | ✅ Completo |
 
 ## Layout
 
 ```
-docker-compose.yml     postgres + pgadmin + nightly backup (infra only)
-db/01_schema.sql       schema + analytical views
-db/02_seed.sql         Chilean category taxonomy + categorization dictionary
-worker/                FastAPI OCR worker — runs as a macOS HOST process
-  app.py               POST /ocr  (Phase 0 functional)
-  config.py db.py      settings + Postgres (Phase 0)
-  preprocess.py barcode.py ocr.py extract.py normalize.py categorize.py validate.py
-docs/                  discovery + architecture (read these first)
+docker-compose.yml        worker + postgres (infra)
+db/01_schema.sql          schema + analytical views
+db/02_seed.sql            categorías chilenas + item_aliases
+worker/
+  app.py                  POST /ocr, GET /health
+  extractor.py            orquestador: Tesseract → Gemini fallback
+  gemini_ocr.py           Gemini 1.5 Flash Vision (escalación automática)
+  extract.py              regex header + line items
+  ocr.py                  Tesseract (PSM 4, OEM 1, spa)
+  preprocess.py           EXIF → grayscale → CLAHE → Sauvola binarize
+  barcode.py              zxing-cpp PDF417 → TED parse
+  normalize.py            RUT mod-11, CLP amounts, fechas
+  categorize.py           item_aliases ILIKE/regex
+  validate.py             aritmética SII + cross-check TED
+  db.py                   psycopg3 upsert idempotente
+  config.py               pydantic-settings (.env)
+docs/                     arquitectura y decisiones de diseño
 ```
 
-> The OCR worker is **not** containerized: Apple Vision (primary OCR) only works on the macOS host. Only Postgres/pgAdmin/backup run in docker-compose. See [`docs/03-architecture.md`](docs/03-architecture.md).
-
-## Quickstart (Phase 0 — plumbing)
+## Quickstart
 
 ```bash
-cp .env.example .env          # edit passwords
-docker compose up -d          # postgres + pgadmin + backup; schema/seed auto-load
-
-cd worker
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
-uvicorn app:app --host 0.0.0.0 --port 8000
-
-# smoke test (separate shell)
-curl -F image=@../Boletas/some.jpg http://localhost:8000/ocr   # -> stored
-curl -F image=@../Boletas/some.jpg http://localhost:8000/ocr   # -> duplicate (dedup works)
+cp .env.example .env
+# Editar .env: agregar GEMINI_API_KEY (https://aistudio.google.com/app/apikey)
+docker compose up -d --build worker postgres
+curl http://localhost:8002/health          # {"ok":true,"db":true}
+curl -X POST http://localhost:8002/ocr -F "image=@/ruta/boleta.jpg"
 ```
 
-## openclaw integration (bot side)
+## Cómo funciona el fallback Gemini
 
-In the photo handler:
-
-```python
-import httpx
-file = await update.message.photo[-1].get_file()
-buf = await file.download_to_memory()
-async with httpx.AsyncClient() as c:
-    r = await c.post("http://localhost:8000/ocr",
-                     files={"image": ("receipt.jpg", buf.getvalue(), "image/jpeg")})
-# reply with r.json() summary; route 'review' status back to user
+```
+foto recibida
+    │
+    ▼
+Tesseract OCR (gratis, offline, rápido)
+    │
+    ├─ confianza ≥ 65% Y ítems ≥ 20 → resultado Tesseract
+    │
+    └─ confianza < 65% O (ítems < 20 Y validación fallida)
+           │
+           ▼
+       Gemini 1.5 Flash Vision (~$0.0002/foto)
+       prompt estructurado → JSON completo con TODOS los ítems
+           │
+           ▼
+       resultado Gemini (ocr_engine: "gemini-1.5-flash")
 ```
 
-## Build order
+Si `GEMINI_API_KEY` está vacío en `.env`, el fallback se salta silenciosamente y se usa el resultado de Tesseract.
 
-Phase 0 plumbing → Phase 1 barcode header → Phase 2 OCR + reconcile → Phase 3 line items → Phase 4 categorization/analytics → Phase 5 (optional) Donut. See [`docs/05-roadmap-and-risks.md`](docs/05-roadmap-and-risks.md).
+## openclaw integration
+
+openclaw ya hace `POST http://localhost:8002/ocr` con la foto. No requiere cambios. El worker devuelve:
+
+```json
+{
+  "status": "stored",
+  "receipt_id": 12,
+  "ocr_engine": "gemini-1.5-flash",
+  "merchant": "UNIMARC",
+  "rut_emisor": "76.123.456-7",
+  "folio": "1804603542430",
+  "issued_date": "2026-06-27",
+  "total": 163303,
+  "items": 38,
+  "validation_status": "ok",
+  "problems": []
+}
+```
+
+Ver [`docs/07-openclaw-integration.md`](docs/07-openclaw-integration.md) para el handler completo.
+
+## Análisis de gastos (SQL directo)
+
+```sql
+-- Todos los ítems de todas las boletas
+SELECT r.issued_date, r.total AS total_boleta,
+       li.normalized_name AS producto, li.unit_price, li.line_total
+FROM receipts r JOIN line_items li ON li.receipt_id = r.id
+ORDER BY r.issued_date DESC, li.line_no;
+
+-- Gasto mensual por categoría
+SELECT * FROM v_monthly_spend_by_category;
+
+-- Items sin categorizar (para poblar item_aliases)
+SELECT * FROM v_uncategorized_items LIMIT 50;
+```

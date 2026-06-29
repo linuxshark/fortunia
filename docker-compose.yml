@@ -12,7 +12,7 @@ services:
       POSTGRES_HOST: postgres        # reach Postgres over the compose network
       IMAGE_STORE: /app/data/images
     ports:
-      - "${OCR_PORT:-8000}:8000"
+      - "${OCR_PORT:-8002}:8000"
     volumes:
       - ./data/images:/app/data/images
     depends_on:

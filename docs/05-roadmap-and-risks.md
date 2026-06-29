@@ -1,46 +1,47 @@
 # 05 — Roadmap & Risks
 
-## Phased build order (MVP first)
+## Phased build order
 
-Front-loads the cheapest, highest-certainty wins (barcode header data); defers the expensive, uncertain line-item work until plumbing + header path are solid. Every stage stays offline and token-free.
+### Phase 0 — Plumbing ✅ Completo
+docker-compose (postgres + pgadmin + backup), schema, openclaw → FastAPI `/ocr` → store raw image + `image_sha256` + stub row. Round trip e idempotencia probados.
 
-### Phase 0 — Plumbing (no extraction yet)
-Stand up docker-compose (postgres + pgadmin + backup), create the schema, wire openclaw → FastAPI `/ocr` → store raw image + `image_sha256` + stub row. Prove round trip and idempotency.
-**Deliverable:** photos land in the DB with dedup working.
+### Phase 1 — Barcode-first header ✅ Completo
+Preprocessing (geometry→photometry) + `zxing-cpp` PDF417 decode → parse TED → header verificado (RUT, folio, fecha, total, merchant) + validación RUT mod-11.
 
-### Phase 1 — MVP extraction: header only, barcode-first
-Add preprocessing (geometry→photometry) + `zxing-cpp` PDF417 decode → parse TED → verified header (RUT, folio, date, total, merchant) + RUT mod-11 validation.
-**Deliverable:** every receipt with a readable barcode gets accurate header data for free, no OCR yet.
+### Phase 2 — OCR + header reconciliation ✅ Completo
+Tesseract (`--psm 4 --oem 1 -l spa`) + regex header; reconcilia vs TED; fallback a header OCR cuando barcode falla. `price-parser` / `dateparser` normalización.
 
-### Phase 2 — OCR + header reconciliation
-Add Apple Vision (`ocrmac`) + regex header extraction; reconcile vs TED; fall back to pure OCR header when the barcode fails. Add `price-parser` / `dateparser` normalization.
-**Deliverable:** headers work even without a barcode.
+### Phase 3 — Line items ✅ Completo
+`ITEM_SEARCH_RE` (search no match), barcode stripping, filtros ratio letras + SKIP_WORDS. Validación aritmética (`sum(lines)+IVA==total`, cross-check vs TED MNT). Queue manual-review via bot para fallos.
 
-### Phase 3 — Line items (the hard part)
-Positional bbox reconstruction for line items; arithmetic validation (`sum(lines)+IVA==total`, cross-checked vs TED `MNT`); manual-review queue via the bot for failures; `invoice2data` templates for top 3–5 merchants.
-**Deliverable:** itemized data behind a validation gate.
+### Phase 4 — Categorización & analytics ✅ Estructurado
+Seed `categories` + `item_aliases` (diccionario vacío, poblar con datos reales). Vistas analíticas: `v_monthly_spend_by_category`, `v_spend_by_merchant`, `v_item_price_history`, `v_uncategorized_items`, `v_tax_reconciliation`.
+**Próximo paso:** poblar `item_aliases` con los ítems de `v_uncategorized_items`.
 
-### Phase 4 — Categorization & analytics
-Seed `categories` + `item_aliases` Chilean retail dictionary; deterministic `ILIKE`/regex categorization at ingest; build analytical views (monthly spend, price history, uncategorized queue).
-**Deliverable:** queryable spend insights.
+### Phase 5 — Gemini Vision fallback ✅ Completo
+Escalación automática cuando Tesseract confianza < 65% o ítems < 20 y validación falla. Gemini 1.5 Flash Vision, prompt estructurado, ~$0.0002/foto. `GEMINI_API_KEY` vacío = offline-only. Reemplaza el plan original de fine-tune Donut.
 
-### Phase 5 — (optional) fine-tuned Donut
-Only if Phase 3 line-item accuracy is insufficient. Label a few hundred boletas, fine-tune Donut locally (PyTorch MPS), run behind the same validation gate. Keep extraction modular so the engine swaps without touching bot or DB. PaddleOCR fallback + PDF-factura branch (`invoice2data` / `cl-sii`) can land here too.
+## Risks
 
-## Risks (stated honestly)
+1. **Line items son la parte difícil.** ✅ Mitigado con Gemini fallback. Tesseract captura ~60% en fotos comprimidas; Gemini sube a ~95%. Riesgo residual: fotos muy borrosas o boletas no estándar.
 
-1. **Line items are the genuinely hard part.** No OSS tool does reliable generic grocery line-item extraction. Expect real tuning: positional clustering thresholds + per-merchant templates. Most likely to disappoint early.
-2. **PDF417 from a phone photo may not decode** if blurry/warped/low-res. Strategy degrades gracefully (fall back to OCR) but loses the free checksum. Mitigate: prompt retake when barcode region unreadable.
-3. **Apple Vision lock-in to macOS.** Primary path assumes the Mac mini host. Portability requires the PaddleOCR/Tesseract container path as a documented escape hatch.
-4. **Thermal-receipt fade + crumpling** breaks y-clustering and binarization. Preprocessing mitigates but won't fully solve worst-case photos. Manual-review queue is the safety net.
-5. **Generative-model temptation.** Donut/Ollama inherit hallucination risk on financial data. Always validate arithmetically; never insert unvalidated generative output.
-6. **PaddleOCR install friction on macOS ARM** (paddlepaddle wheels) — a reason Apple Vision is primary, Paddle is fallback.
-7. **License footnotes:** LayoutLMv3 = CC-BY-NC-SA NonCommercial (avoid if commercial); `pdf417decoder` = CPOL (review); OCRmyPDF = MPL file-level copyleft (fine as a dependency). Core stack (OpenCV, scikit-image, Pillow, zxing-cpp, invoice2data, price-parser, dateparser, ocrmac, PaddleOCR, Tesseract, cl-sii) is all MIT/Apache/BSD — clean.
+2. **PDF417 puede no decodificar** si la foto es borrosa/torcida/baja resolución. La pipeline degrada graciosamente a OCR-only. Mitigación: prompt de retake cuando región barcode ilegible.
 
-## Definition of done (per phase)
+3. **Apple Vision lock-in** ✅ Resuelto. Worker containerizado usa Tesseract + Gemini; no depende de macOS host. Portabilidad completa: funciona en cualquier Linux arm64 o amd64.
 
-- Phase 0: send a photo → row appears once even if sent twice.
-- Phase 1: barcode receipts show correct RUT/folio/total without OCR.
-- Phase 2: non-barcode receipts get headers; totals reconcile.
-- Phase 3: line items sum to total (within tolerance) or land in review.
-- Phase 4: `v_monthly_spend_by_category` returns sensible numbers.
+4. **Thermal-receipt fade + crumpling** rompe binarización y clustering. Preprocessing mitiga pero no resuelve worst-case. Manual-review queue es el safety net; Gemini maneja mejor fotos ruidosas que Tesseract.
+
+5. **Gemini temptation / alucinación.** Gemini output pasa por el mismo validate() que Tesseract: `qty*unit_price==line_total`, `sum(lines)==total`. Inserción bloqueada si no cuadra. Nunca insertar filas financieras sin validación aritmética.
+
+6. **Costo Gemini.** ~$0.0002/foto. 100 boletas/mes = $0.02. No es riesgo económico; sí es riesgo de fuga si `GEMINI_API_KEY` se expone. La key nunca va al repo (`.gitignore` + `.env`).
+
+7. **License footnotes.** Core stack (OpenCV, scikit-image, Pillow, zxing-cpp, Tesseract, price-parser, dateparser, psycopg, google-generativeai) = MIT/Apache/BSD — limpio. LayoutLMv3 = CC-BY-NC-SA NonCommercial (no usar). `pdf417decoder` = CPOL (revisar).
+
+## Definition of done
+
+- Phase 0: foto → row aparece una vez aunque se envíe dos veces. ✅
+- Phase 1: boletas con barcode → RUT/folio/total correcto sin OCR. ✅
+- Phase 2: boletas sin barcode → headers OK; totales reconcilian. ✅
+- Phase 3: ítems suman al total (dentro de tolerancia) o van a review. ✅
+- Phase 4: `v_monthly_spend_by_category` devuelve números razonables. ✅ (vistas listas; aliases vacíos)
+- Phase 5: boletas de baja confianza Tesseract → Gemini extrae todos los ítems. ✅

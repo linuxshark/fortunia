@@ -26,7 +26,7 @@ def run_ocr(binary_image) -> tuple[str, list[Word], float]:
     import pytesseract
     from pytesseract import Output
 
-    cfg = "--psm 6"
+    cfg = "--psm 4 --oem 1"
     lang = settings.tesseract_lang
 
     raw_text = pytesseract.image_to_string(binary_image, lang=lang, config=cfg)
