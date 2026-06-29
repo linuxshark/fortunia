@@ -18,7 +18,7 @@ POST /ocr (FastAPI worker, docker-compose service)  ── compute image_sha256 
    │           parse <TED>/<DD> → verified header (RUT, folio, type, date, total, merchant)
    │                                                  │
    ├─ Stage 3  OCR (Tesseract PSM 4, OEM 1, spa) ◄───┘   text + confidence
-   │           └─ auto-escalación a Gemini 1.5 Flash si confianza < 65% o ítems < 20
+   │           └─ auto-escalación a Gemini 2.5 Flash si confianza < 65% o ítems < 20
    │
    ├─ Stage 4  Extract: regex header anchors + ITEM_SEARCH_RE line-items
    │
@@ -43,7 +43,7 @@ Orden: geometry (EXIF fix → deskew) → photometry (upscale → CLAHE → deno
 
 ### Stage 3 — OCR
 - **Primario: Tesseract** (`--psm 4 --oem 1 -l spa`). PSM 4 = columna única; OEM 1 = LSTM. ~60% confidence en fotos WhatsApp comprimidas.
-- **Escalación automática: Gemini 1.5 Flash Vision** cuando `conf < 65` OR `(items < 20 AND validation != "ok")`. Prompt estructurado → JSON completo. ~$0.0002/foto. `ocr_engine` en respuesta indica cuál se usó.
+- **Escalación automática: Gemini 2.5 Flash Vision** cuando `conf < 65` OR `(items < 20 AND validation != "ok")`. Prompt estructurado → JSON completo. ~$0.0002/foto. `ocr_engine` en respuesta indica cuál se usó.
 - Si `GEMINI_API_KEY` vacío → Tesseract result siempre (fallback silencioso).
 
 ### Stage 4 — Extraction
@@ -64,7 +64,7 @@ Orden: geometry (EXIF fix → deskew) → photometry (upscale → CLAHE → deno
 | Engine | Velocidad | Costo | Accuracy boletas | Uso |
 |---|---|---|---|---|
 | Tesseract PSM 4 OEM 1 | ~1s | gratis | ~60% conf | siempre primero |
-| Gemini 1.5 Flash | ~5-10s | ~$0.0002/foto | ~95% | escalación automática |
+| Gemini 2.5 Flash | ~5-10s | ~$0.0002/foto | ~95% | escalación automática |
 
 Tesseract primero. Gemini sólo cuando necesario. Costo mensual esperado < $1 USD para uso personal.
 

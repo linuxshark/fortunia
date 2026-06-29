@@ -1,0 +1,97 @@
+<section class="kpis grid">
+  <article class="kpi">
+    <small class="muted">Total del mes</small>
+    <h2>{{ kpis.total | clp }}</h2>
+  </article>
+  <article class="kpi">
+    <small class="muted">Boletas</small>
+    <h2>{{ kpis.receipts }}</h2>
+  </article>
+  <article class="kpi">
+    <small class="muted">Ítems</small>
+    <h2>{{ kpis['items'] }}</h2>
+  </article>
+</section>
+
+<div class="grid cols-2">
+  <article>
+    <header><strong>Gasto por categoría</strong></header>
+    {% if categories %}
+      <div class="chart-wrap"><canvas id="catChart"></canvas></div>
+      <script id="catData" type="application/json">
+        {"labels": {{ chart_labels | tojson }}, "data": {{ chart_data | tojson }}, "colors": {{ chart_colors | tojson }}}
+      </script>
+      <script>
+        (function () {
+          var el = document.getElementById('catChart');
+          if (!el || !window.Chart) return;
+          if (window._catChart) window._catChart.destroy();
+          var d = JSON.parse(document.getElementById('catData').textContent);
+          window._catChart = new Chart(el, {
+            type: 'doughnut',
+            data: { labels: d.labels, datasets: [{ data: d.data, backgroundColor: d.colors, borderWidth: 1 }] },
+            options: {
+              plugins: { legend: { position: 'right' } },
+              responsive: true, maintainAspectRatio: false, cutout: '58%'
+            }
+          });
+        })();
+      </script>
+    {% else %}
+      <p class="muted">Sin datos para este mes.</p>
+    {% endif %}
+  </article>
+
+  <article>
+    <header><strong>Categorías</strong></header>
+    <table>
+      <thead><tr><th>Categoría</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for c in categories %}
+        <tr>
+          <td><span class="dot" style="background:{{ color_for(c.category) }}"></span>
+            <a href="/category/{{ c.category }}?month={{ month }}">{{ c.category }}</a></td>
+          <td class="num">{{ c.total | clp }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" class="muted">—</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+</div>
+
+<div class="grid cols-2">
+  <article>
+    <header><strong>Top comercios</strong></header>
+    <table>
+      <thead><tr><th>Comercio</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for m in merchants %}
+        <tr><td>{{ m.merchant }}</td><td class="num">{{ m.total | clp }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="muted">—</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+
+  <article>
+    <header><strong>Boletas recientes</strong></header>
+    <table>
+      <thead><tr><th>Fecha</th><th>Comercio</th><th class="num">Ítems</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for r in receipts %}
+        <tr>
+          <td>{{ r.issued_date }}</td>
+          <td><a href="/receipt/{{ r.id }}">{{ r.merchant }}</a></td>
+          <td class="num">{{ r['items'] }}</td>
+          <td class="num">{{ r.total | clp }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">Sin boletas este mes.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+</div>

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ root }} · fortunia{% endblock %}
+{% block content %}
+<header class="page-head">
+  <hgroup>
+    <h1><span class="dot" style="background:{{ color_for(root) }}"></span>{{ root }}</h1>
+    <p class="muted">{{ month }} · total {{ total | clp }} · <a href="/?month={{ month }}">← Resumen</a></p>
+  </hgroup>
+</header>
+
+<article>
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Comercio</th><th>Producto</th><th class="num">Cant.</th>
+          <th class="num">P. unit</th><th class="num">Total</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.issued_date }}</td>
+        <td><a href="/receipt/{{ r.receipt_id }}">{{ r.merchant }}</a></td>
+        <td>{{ r.normalized_name or r.raw_text or '—' }}</td>
+        <td class="num">{{ r.qty }}</td>
+        <td class="num">{{ r.unit_price | clp }}</td>
+        <td class="num">{{ r.line_total | clp }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">Sin ítems en esta categoría para {{ month }}.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endblock %}

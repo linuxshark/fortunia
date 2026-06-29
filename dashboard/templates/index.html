@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <hgroup>
+    <h1>Resumen de gastos</h1>
+    <p class="muted">Gasto por categoría y detalle de boletas</p>
+  </hgroup>
+  <form class="month-form" hx-get="/partials/overview" hx-target="#overview" hx-swap="innerHTML"
+        hx-trigger="change from:select" hx-push-url="false">
+    <select name="month" aria-label="Mes">
+      {% for m in months %}
+        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
+      {% endfor %}
+      {% if month not in months %}<option value="{{ month }}" selected>{{ month }}</option>{% endif %}
+    </select>
+  </form>
+</header>
+
+<div id="overview">
+  {% include "_overview.html" %}
+</div>
+{% endblock %}
