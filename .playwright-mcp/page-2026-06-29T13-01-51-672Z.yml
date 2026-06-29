@@ -1,0 +1,91 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - list [ref=e3]:
+      - listitem [ref=e4]:
+        - link "fortunia gastos" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - strong [ref=e6]: fortunia
+          - text: gastos
+    - list [ref=e7]:
+      - listitem [ref=e8]:
+        - link "Resumen" [ref=e9] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=e10]:
+        - link "Gastos" [ref=e11] [cursor=pointer]:
+          - /url: /expenses
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "Resumen de gastos" [level=1] [ref=e15]
+        - paragraph [ref=e16]: Gasto por categoría y detalle de boletas
+      - combobox "Mes" [ref=e18]:
+        - option "2026-06" [selected]
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - article [ref=e21]:
+          - text: Total del mes
+          - heading "$48.500" [level=2] [ref=e22]
+        - article [ref=e23]:
+          - text: Boletas
+          - heading "2" [level=2] [ref=e24]
+        - article [ref=e25]:
+          - text: Ítems
+          - heading "2" [level=2] [ref=e26]
+      - generic [ref=e27]:
+        - article [ref=e28]:
+          - strong [ref=e30]: Gasto por categoría
+        - article [ref=e33]:
+          - strong [ref=e35]: Categorías
+          - table [ref=e36]:
+            - rowgroup [ref=e37]:
+              - row "Categoría Total" [ref=e38]:
+                - columnheader "Categoría" [ref=e39]
+                - columnheader "Total" [ref=e40]
+            - rowgroup [ref=e41]:
+              - row "Transporte $40.000" [ref=e42]:
+                - cell "Transporte" [ref=e43]:
+                  - link "Transporte" [ref=e45] [cursor=pointer]:
+                    - /url: /category/Transporte?month=2026-06
+                - cell "$40.000" [ref=e46]
+              - row "Restaurant $8.500" [ref=e47]:
+                - cell "Restaurant" [ref=e48]:
+                  - link "Restaurant" [ref=e50] [cursor=pointer]:
+                    - /url: /category/Restaurant?month=2026-06
+                - cell "$8.500" [ref=e51]
+      - generic [ref=e52]:
+        - article [ref=e53]:
+          - strong [ref=e55]: Top comercios
+          - table [ref=e56]:
+            - rowgroup [ref=e57]:
+              - row "Comercio Total" [ref=e58]:
+                - columnheader "Comercio" [ref=e59]
+                - columnheader "Total" [ref=e60]
+            - rowgroup [ref=e61]:
+              - row "Sin comercio $48.500" [ref=e62]:
+                - cell "Sin comercio" [ref=e63]
+                - cell "$48.500" [ref=e64]
+        - article [ref=e65]:
+          - strong [ref=e67]: Boletas recientes
+          - table [ref=e68]:
+            - rowgroup [ref=e69]:
+              - row "Fecha Comercio Ítems Total" [ref=e70]:
+                - columnheader "Fecha" [ref=e71]
+                - columnheader "Comercio" [ref=e72]
+                - columnheader "Ítems" [ref=e73]
+                - columnheader "Total" [ref=e74]
+            - rowgroup [ref=e75]:
+              - row "2026-06-29 Sin comercio 1 $8.500" [ref=e76]:
+                - cell "2026-06-29" [ref=e77]
+                - cell "Sin comercio" [ref=e78]:
+                  - link "Sin comercio" [ref=e79] [cursor=pointer]:
+                    - /url: /receipt/2
+                - cell "1" [ref=e80]
+                - cell "$8.500" [ref=e81]
+              - row "2026-06-29 Sin comercio 1 $40.000" [ref=e82]:
+                - cell "2026-06-29" [ref=e83]
+                - cell "Sin comercio" [ref=e84]:
+                  - link "Sin comercio" [ref=e85] [cursor=pointer]:
+                    - /url: /receipt/1
+                - cell "1" [ref=e86]
+                - cell "$40.000" [ref=e87]
+  - contentinfo [ref=e88]: fortunia dashboard · solo lectura · puerto 8001

@@ -6,14 +6,22 @@ Flow: receive image -> store -> extract_from_bytes -> persist -> JSON summary.
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 import db
+from categorize import categorize
 from config import settings
 from extractor import extract_from_bytes
+from text_expense import ParseError, parse_expense
 
-app = FastAPI(title="fortunia-worker", version="0.2.0")
+app = FastAPI(title="fortunia-worker", version="0.3.0")
+
+
+class TextExpense(BaseModel):
+    text: str = Field(..., min_length=1, max_length=500)
 
 
 @app.get("/health")
@@ -48,4 +56,65 @@ async def ocr(image: UploadFile = File(...)) -> dict:
         "items": len(result["line_items"]),
         "validation_status": result["validation_status"],
         "problems": result["problems"],
+    }
+
+
+@app.post("/text")
+def text_expense(payload: TextExpense) -> dict:
+    """Registra un gasto a partir de texto libre ("gaste 40.000 en bencina").
+
+    No pasa por OCR: parsea monto + categoría, mapea la categoría vía
+    item_aliases y persiste un recibo manual con un único line_item.
+    """
+    try:
+        parsed = parse_expense(payload.text)
+    except ParseError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    amount = parsed["amount"]
+    cat_id, norm, source = categorize(parsed["category_text"])
+
+    result = {
+        "merchant_name": None,
+        "rut_emisor": None,
+        "rut_receptor": None,
+        "doc_type": "texto",
+        "tipo_dte": None,
+        "folio": None,
+        "issued_date": date.today(),
+        "net": None,
+        "tax": None,
+        "total": amount,
+        "ted_total": None,
+        "header_source": "texto",
+        "validation_status": "ok",
+        "source_image_path": None,
+        "image_sha256": None,          # sin imagen: NULL no colisiona en el índice único
+        "ocr_engine": "text",
+        "ocr_confidence": None,
+        "ocr_raw_text": parsed["raw"],
+        "line_items": [
+            {
+                "line_no": 1,
+                "raw_text": parsed["category_text"],
+                "normalized_name": norm or parsed["category_text"],
+                "category_id": cat_id,
+                "category_source": source,
+                "qty": 1,
+                "unit_price": amount,
+                "line_total": amount,
+            }
+        ],
+    }
+
+    receipt_id, created = db.persist(result)
+    return {
+        "status": "stored" if created else "duplicate",
+        "receipt_id": receipt_id,
+        "amount": amount,
+        "category_text": parsed["category_text"],
+        "category_id": cat_id,
+        "category": norm or parsed["category_text"],
+        "category_source": source,
+        "issued_date": str(result["issued_date"]),
     }

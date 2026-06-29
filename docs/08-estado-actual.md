@@ -23,6 +23,126 @@ Primera boleta real procesada: **LIDER, $194.330, 43 ítems** — extraída comp
 
 ---
 
+## Gasto por texto (sin OCR) — `POST /text`
+
+Además de la foto, el worker acepta un gasto escrito en lenguaje natural. openclaw
+detecta un mensaje de texto (no foto) y hace `POST http://localhost:8002/text`
+con `{"text": "gaste 40.000 en bencina"}`. No pasa por OCR ni Gemini.
+
+```
+Usuario → "gaste 40.000 en bencina" en Telegram
+  → openclaw → POST /text  {"text": "..."}
+  → worker.text_expense.parse_expense()  (determinista, token-free)
+       monto: clp_to_int + multiplicadores (mil/k/luca/palo)
+       categoría: texto tras preposición (en/de/para/por)
+  → categorize() mapea la categoría vía item_aliases
+  → db.persist() — recibo doc_type='texto', image_sha256=NULL, 1 line_item
+  → JSON → dashboard lo muestra en el mes correcto
+```
+
+**Verificado end-to-end (2026-06-29):** `"gaste 40.000 en bencina"` → recibo id 1,
+total $40.000, line_item categoría **Combustible** (15) → rollup a **Transporte**
+en el dashboard. `"pagué 8500 en almuerzo"` → **Restaurant**. Texto sin monto → `422`.
+
+**Por qué reusa `db.persist`:** un gasto de texto es un recibo con `image_sha256 = NULL`
+y un único `line_item`. Postgres trata los NULL como distintos en el índice único,
+así que no hay falsos duplicados. La categorización es la misma ruta determinista
+que la de boletas (`item_aliases`).
+
+**Taxonomía nueva (`db/04_text_seed.sql`):** categorías que no salen en boletas de
+super pero sí en gastos del día (Transporte>Combustible/Transporte publico, Salud,
+Servicios, Restaurant, Entretenimiento, Hogar, Educacion) + ~34 aliases. Idempotente:
+se monta en initdb y puede re-aplicarse a mano (`psql < db/04_text_seed.sql`).
+
+**Parser:** `worker/text_expense.py` — puro, sin DB. Tests en
+`worker/tests/test_text_expense.py` (17 casos: formatos CLP, multiplicadores,
+extracción de categoría, validación de monto/longitud).
+
+### TODO openclaw (sesión Mac mini) — integrar texto con Telegram
+
+El worker ya expone `POST /text`. Falta el lado de openclaw. Pasos en el Mac mini:
+
+**1. Pull del cambio del worker.**
+```bash
+cd <repo-fortunia-en-mac-mini>
+git pull                       # trae text_expense.py, /text, db/04_text_seed.sql
+docker compose up -d --build worker
+```
+
+**2. Aplicar la taxonomía nueva a la DB que YA está corriendo.**
+El initdb sólo corre en cluster nuevo; la DB del Mac mini ya tiene datos, así que
+`04_text_seed.sql` NO se aplica solo. Correrlo a mano (es idempotente):
+```bash
+docker compose exec -T postgres psql -U boleta -d boletas < db/04_text_seed.sql
+# verificar:
+docker compose exec -T postgres psql -U boleta -d boletas -c \
+  "SELECT id,name FROM categories WHERE id>=14 ORDER BY id;"
+```
+
+**3. Agregar handler de mensajes de texto en openclaw** (python-telegram-bot).
+Hoy openclaw sólo maneja `MessageHandler(filters.PHOTO, on_photo)`. Agregar uno
+para texto que NO sea comando:
+```python
+import httpx
+
+WORKER_TEXT_URL = "http://localhost:8002/text"
+
+async def on_text(update, context):
+    text = (update.message.text or "").strip()
+    if not text:
+        return
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.post(WORKER_TEXT_URL, json={"text": text})
+
+    if r.status_code == 422:
+        await update.message.reply_text(
+            "No pillé un monto. Ej: «gaste 40.000 en bencina» 💸"
+        )
+        return
+    r.raise_for_status()
+    d = r.json()
+
+    if d["status"] == "duplicate":
+        await update.message.reply_text("Ya tenía ese gasto 👍")
+        return
+    await update.message.reply_text(
+        f"✅ Gasto registrado\n"
+        f"💰 ${d['amount']:,}\n"
+        f"🏷️ {d['category']}\n"
+        f"📅 {d['issued_date']}"
+    )
+
+# registrar (después del de fotos):
+from telegram.ext import MessageHandler, filters
+application.add_handler(
+    MessageHandler(filters.TEXT & ~filters.COMMAND, on_text)
+)
+```
+
+**4. Orden de los handlers:** el de FOTO sigue manejando fotos; el de TEXTO sólo
+captura mensajes de texto sin comando. No chocan. Si openclaw usa `/start` u otros
+comandos, el filtro `~filters.COMMAND` los excluye.
+
+**5. Probar desde Telegram:** enviar `gaste 40.000 en bencina` → debe responder
+"✅ Gasto registrado, $40.000, Bencina" y aparecer en el dashboard `:8001`.
+
+**Forma de respuesta `POST /text`:**
+```json
+{
+  "status": "stored",          // o "duplicate"
+  "receipt_id": 1,
+  "amount": 40000,
+  "category_text": "bencina",
+  "category_id": 15,
+  "category": "Bencina",
+  "category_source": "rule",   // "rule" si matcheó alias, "unmatched" si no
+  "issued_date": "2026-06-29"
+}
+```
+`422` con `{"detail": "..."}` cuando no hay monto / monto inválido / texto vacío.
+
+---
+
 ## Modelo OCR activo
 
 | Motor | Modelo | Uso | Costo |
