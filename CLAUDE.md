@@ -103,6 +103,8 @@ make uncategorized    # Items without category (for populating item_aliases)
 
 # Manual backup (immediate pg_dump)
 make backup           # Creates backups/manual-YYYYMMDD-HHMMSS.sql.gz
+
+make fund              # Aplica el DDL del Fondo Común a la DB en marcha (idempotente)
 ```
 
 ### Dashboard Setup
@@ -151,6 +153,9 @@ Copy `.env.example` to `.env` and fill:
 - `db/01_schema.sql` — Table definitions and analytical views
 - `db/02_seed.sql` — Category and item alias seed data
 - `db/03_ro_role.sh` — Read-only role creation (idempotent)
+- `db/06_fund.sql` — Fondo Común: categorías shared, `fund_monthly`, vista `v_fund_monthly`
+- `dashboard/writes.py` — única escritura del dashboard (presupuesto, acotada a `fund_monthly`)
+- `dashboard/templates/_fund.html` — barra de progreso + tarjetas de categoría compartida
 - `Makefile` — All operational commands
 
 ## Data Flow
