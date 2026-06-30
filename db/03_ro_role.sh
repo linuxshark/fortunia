@@ -26,6 +26,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 	GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${POSTGRES_RO_USER};
 	-- tablas/vistas futuras quedan SELECT-only automáticamente
 	ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${POSTGRES_RO_USER};
+	-- Fondo Común: el dashboard escribe SOLO esta tabla (presupuesto). Resto SELECT-only.
+	GRANT SELECT, INSERT, UPDATE ON fund_monthly TO ${POSTGRES_RO_USER};
 EOSQL
 
 echo "✓ Rol ${POSTGRES_RO_USER} listo (SELECT-only sobre $POSTGRES_DB)"

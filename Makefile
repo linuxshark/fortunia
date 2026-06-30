@@ -202,6 +202,26 @@ backup:
 		| gzip > backups/manual-$$(date +%Y%m%d-%H%M%S).sql.gz
 	@echo "Backup guardado en backups/"
 
+## fund: aplica el DDL del fondo (06_fund.sql) a la DB en marcha (idempotente)
+.PHONY: fund
+fund:
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/06_fund.sql
+	@$(MAKE) --no-print-directory ro-role
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} \
+		-c "GRANT SELECT, INSERT, UPDATE ON fund_monthly TO $${POSTGRES_RO_USER:-fortunia_ro};"
+	@echo "✓ Fondo Común aplicado (schema + grant RW acotado)"
+
+## test: unit + DB-integration del worker (requiere `make deploy` para los DB)
+.PHONY: test
+test:
+	cd worker && pytest -v
+
+## e2e: instala Playwright (si falta) y corre los tests E2E del dashboard
+.PHONY: e2e
+e2e:
+	cd e2e && pip install -q -r requirements.txt && python -m playwright install --with-deps chromium
+	cd e2e && pytest -v
+
 # ── help ──────────────────────────────────────────────────────────────────────
 
 ## help: lista todos los comandos disponibles
