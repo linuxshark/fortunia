@@ -7,12 +7,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import queries as q
+import writes
 from config import settings
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -120,6 +121,16 @@ def index(request: Request, month: str | None = None):
 
 @app.get("/partials/overview", response_class=HTMLResponse)
 def overview_partial(request: Request, month: str | None = None):
+    return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
+
+
+@app.post("/fund/budget", response_class=HTMLResponse)
+def fund_budget(request: Request, category_id: int = Form(...),
+                month: str = Form(...), amount: int = Form(...)):
+    """Edita el presupuesto mensual de una categoría compartida (escritura acotada)."""
+    if amount < 0:
+        amount = 0
+    writes.set_budget(category_id, month, amount)
     return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
 
 
