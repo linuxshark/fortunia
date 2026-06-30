@@ -41,3 +41,12 @@ def categorize(raw_text: str) -> tuple[int | None, str | None, str]:
 def categorize_income(raw_text: str) -> tuple[int | None, str | None, str]:
     """Categorize income text. Pass the full raw input (verb-based aliases need it)."""
     return _categorize(raw_text, "income")
+
+
+def categorize_shared(raw_text: str) -> tuple[int | None, str | None, str]:
+    """Categoriza texto contra categorías compartidas del hogar (classification='shared').
+
+    Se usa para decidir si un gasto por texto libre debe rutear al Fondo Común
+    en vez del flujo normal de gasto. Devuelve (category_id, normalized_name, source).
+    """
+    return _categorize(raw_text, "shared")

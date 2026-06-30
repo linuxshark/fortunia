@@ -100,6 +100,38 @@ def persist(result: dict) -> tuple[int | None, bool]:
             return None, False               # same rut+folio+doc_type already stored
 
 
+def upsert_fund_payment(
+    category_id: int, month, amount: int, source: str
+) -> tuple:
+    """Registra el pago de una categoría compartida para un mes (idempotente).
+
+    UPSERT por (category_id, month): reemplaza paid_amount (no suma). Si la fila
+    no existía, inicializa budget_amount desde categories.target_amount (o 0).
+    Devuelve (paid_amount, remaining) con remaining = budget_amount - paid_amount.
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO fund_monthly (category_id, month, budget_amount, paid_amount, paid_at, source)
+            VALUES (
+                %(cat)s, %(month)s,
+                COALESCE((SELECT target_amount FROM categories WHERE id = %(cat)s), 0),
+                %(amount)s, now(), %(source)s
+            )
+            ON CONFLICT (category_id, month) DO UPDATE
+              SET paid_amount = EXCLUDED.paid_amount,
+                  paid_at     = now(),
+                  source      = EXCLUDED.source,
+                  updated_at  = now()
+            RETURNING paid_amount, (budget_amount - paid_amount) AS remaining
+            """,
+            {"cat": category_id, "month": month, "amount": amount, "source": source},
+        )
+        row = cur.fetchone()
+        conn.commit()
+    return row["paid_amount"], row["remaining"]
+
+
 def persist_income(parsed: dict, category_id: int | None) -> tuple[int, bool]:
     """Insert a row into incomes. No idempotency — same income on different days is valid."""
     with connect() as conn, conn.cursor() as cur:

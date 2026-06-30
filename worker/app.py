@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 import db
-from categorize import categorize, categorize_income
+from categorize import categorize, categorize_income, categorize_shared
 from text_income import parse_income
 from config import settings
 from extractor import extract_from_bytes
@@ -73,6 +73,25 @@ def text_expense(payload: TextExpense) -> dict:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     amount = parsed["amount"]
+
+    # 1) ¿Es un gasto COMPARTIDO del hogar? -> ruta al Fondo Común (no crea receipt).
+    shared_id, shared_norm, shared_src = categorize_shared(parsed["category_text"])
+    if shared_id is not None:
+        month = date.today().replace(day=1)
+        paid, remaining = db.upsert_fund_payment(shared_id, month, amount, "telegram")
+        return {
+            "status": "stored",
+            "routed_to": "fund",
+            "amount": amount,
+            "category_id": shared_id,
+            "category": shared_norm or parsed["category_text"],
+            "category_source": shared_src,
+            "month": str(month),
+            "paid_amount": float(paid),
+            "remaining": float(remaining),
+        }
+
+    # 2) Gasto normal -> flujo de boleta de texto (receipt + 1 line_item).
     cat_id, norm, source = categorize(parsed["category_text"])
 
     result = {
@@ -90,7 +109,7 @@ def text_expense(payload: TextExpense) -> dict:
         "header_source": "texto",
         "validation_status": "ok",
         "source_image_path": None,
-        "image_sha256": None,          # sin imagen: NULL no colisiona en el índice único
+        "image_sha256": None,
         "ocr_engine": "text",
         "ocr_confidence": None,
         "ocr_raw_text": parsed["raw"],
@@ -111,6 +130,7 @@ def text_expense(payload: TextExpense) -> dict:
     receipt_id, created = db.persist(result)
     return {
         "status": "stored" if created else "duplicate",
+        "routed_to": "expense",
         "receipt_id": receipt_id,
         "amount": amount,
         "category_text": parsed["category_text"],
