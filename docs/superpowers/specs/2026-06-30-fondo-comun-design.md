@@ -22,11 +22,13 @@ en el dashboard.
 | Q4 | Ruteo Telegram | **Mismo `/text`**, autodetecta categoría compartida; idempotente por `(category_id, month)` (reportar de nuevo reemplaza, no suma). |
 | Escritura presupuesto | **Rol RW acotado solo a `fund_monthly`** para el dashboard. |
 
-**Pendiente no bloqueante:** el usuario mencionó inspirarse en un portal
-"hazlacorta.org" para el editor de presupuesto; no se encontró tal portal
-(existe hazlacorta.com, directorio de oficios, no relacionado). Se implementa un
-editor inline estándar (input numérico por fila); si el usuario aporta el link,
-se ajusta la UX.
+**Referencia UX (resuelta):** hazlacorta.org/calculadora-de-gastos-del-hogar.
+Patrón adoptado para el editor de presupuesto: tarjetas por categoría con
+**emoji + nombre + input `$` editable inline** y un **toggle "Compartido"**
+(verde on/off). El portal además hace reparto **proporcional por persona**
+(modo Proporcional vs 50/50) y un "Ahorro Conjunto" aparte — el reparto
+proporcional NO se adopta esta iteración (Q1 = solo fondo total); sí se adopta
+el patrón visual de tarjetas con input inline y toggle compartido.
 
 ## 3. Modelo de datos
 
@@ -106,10 +108,12 @@ GRANT SELECT, INSERT, UPDATE ON fund_monthly TO ${POSTGRES_RO_USER};
 - `writes.set_budget(category_id, month, amount)` → módulo de escritura nuevo
   (conexión RW acotada) que hace `ensure_month` + UPDATE de `budget_amount`.
 - Ruta `POST /fund/budget` (HTMX) → set_budget → devuelve el partial refrescado.
-- Partial `_fund.html`:
+- Partial `_fund.html` (estética inspirada en hazlacorta.org/calculadora):
   - **Barra de progreso** del fondo (restante/objetivo; se vacía al pagar).
-  - Lista de categorías compartidas: nombre, input editable de presupuesto
-    (POST inline), badge "pagado/pendiente", monto pagado.
+  - Tarjetas por categoría compartida: **emoji + nombre + input `$` editable
+    inline** del presupuesto (POST HTMX), badge "pagado/pendiente", monto pagado.
+  - Toggle "Compartido" opcional por categoría (visual; activa/desactiva su
+    inclusión en el objetivo del mes).
 - **Req #1** (barras de ingreso por fuente): `income_by_category` +
   `_income_bar.html` ya existen; se verifica/ajusta que muestren total
   acumulado por fuente.
