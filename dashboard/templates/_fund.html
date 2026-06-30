@@ -8,10 +8,20 @@
     </span>
   </header>
 
-  <div class="fund-bar-wrap" title="Consumido vs objetivo">
-    <div class="fund-bar-fill" style="width: {{ fund_totals.pct }}%"></div>
+  <div class="fund-bar-wrap" title="{{ fund_totals.pct }}% del fondo utilizado">
+    <div class="fund-bar-fill" style="width: {{ fund_totals.bar_width }}%; background: {{ fund_totals.bar_color }};"></div>
   </div>
-  <p class="fund-remaining muted">Restante por pagar: <strong>{{ fund_totals.restante | clp }}</strong> ({{ fund_totals.pct }}% consumido)</p>
+  {% if fund_totals.overspent %}
+  <p class="fund-remaining fund-overspent">
+    ⚠ Excedido por <strong>{{ fund_totals.excedido | clp }}</strong>
+    — pagado {{ fund_totals.pagado | clp }} de {{ fund_totals.objetivo | clp }}
+  </p>
+  {% else %}
+  <p class="fund-remaining muted">
+    Fondo disponible: <strong>{{ fund_totals.restante | clp }}</strong>
+    <span class="fund-pct">({{ fund_totals.pct }}% utilizado)</span>
+  </p>
+  {% endif %}
 
   <div class="fund-grid">
     {% for r in fund_rows %}

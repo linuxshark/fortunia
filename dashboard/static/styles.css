@@ -80,7 +80,9 @@ table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .fund-header { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .fund-figures { font-variant-numeric: tabular-nums; }
 .fund-bar-wrap { height: 14px; background: #e5e7eb; border-radius: 7px; overflow: hidden; margin: .5rem 0 .25rem; }
-.fund-bar-fill { height: 100%; background: linear-gradient(90deg,#16a34a,#0891b2); transition: width .3s ease; }
+.fund-bar-fill { height: 100%; transition: width .4s ease, background .4s ease; }
+.fund-overspent { color: #dc2626; font-size: .88rem; margin: 0 0 .75rem; }
+.fund-pct { font-size: .82rem; }
 .fund-remaining { margin: 0 0 .75rem; }
 .fund-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .6rem; }
 .fund-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: .6rem .7rem; background: #fff; }

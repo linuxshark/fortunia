@@ -238,17 +238,33 @@ def fund_status(month: str) -> list[dict]:
 
 
 def fund_totals(month: str) -> dict:
-    """Totales del fondo: objetivo (suma de presupuestos), pagado, restante y % consumido."""
+    """Totales del fondo: objetivo, pagado, restante, barra y color (tanque drenándose)."""
     rows = fund_status(month)
     objetivo = sum(r["budget_amount"] for r in rows)
     pagado = sum(r["paid_amount"] for r in rows)
     restante = objetivo - pagado
-    pct = int(round(100 * pagado / objetivo)) if objetivo > 0 else 0
+    pct_consumido = int(round(100 * pagado / objetivo)) if objetivo > 0 else 0
+    overspent = pagado > objetivo
+
+    # Barra = fondo restante (se achica conforme se paga)
+    bar_width = max(0, 100 - pct_consumido)
+
+    # Color: amarillo (hsl 55°) → verde (hsl 142°) conforme se consume; rojo si excedido
+    if overspent:
+        bar_color = "hsl(0, 72%, 51%)"
+    else:
+        hue = 55 + int(87 * min(pct_consumido / 100, 1.0))
+        bar_color = f"hsl({hue}, 80%, 40%)"
+
     return {
         "objetivo": objetivo,
         "pagado": pagado,
         "restante": restante,
-        "pct": min(pct, 100),
+        "pct": pct_consumido,
+        "bar_width": bar_width,
+        "bar_color": bar_color,
+        "overspent": overspent,
+        "excedido": max(0.0, pagado - objetivo),
     }
 
 
