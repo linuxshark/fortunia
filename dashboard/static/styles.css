@@ -94,4 +94,7 @@ table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .fund-input { display: flex; align-items: center; gap: .2rem; }
 .fund-input .peso { color: #6b7280; }
 .fund-input input { width: 100%; padding: .2rem .3rem; font-variant-numeric: tabular-nums; }
-.fund-paid { font-size: .72rem; margin-top: .3rem; }
+.fund-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: .4rem; }
+.fund-paid { font-size: .72rem; }
+.fund-badge-paid { background: #16a34a; font-size: .7rem; padding: .15rem .5rem; }
+.fund-badge-pending { background: #ea580c; font-size: .7rem; padding: .15rem .5rem; }

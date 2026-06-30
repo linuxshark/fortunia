@@ -29,8 +29,6 @@
       <div class="fund-card-head">
         <span class="fund-emoji">{{ emoji_for(r.category) }}</span>
         <span class="fund-name">{{ r.category }}</span>
-        {% if r.paid %}<span class="badge paid">Pagado</span>
-        {% else %}<span class="badge pending">Pendiente</span>{% endif %}
       </div>
       <form class="fund-budget-form" hx-post="/fund/budget" hx-target="#overview"
             hx-swap="innerHTML" hx-trigger="change from:input[name='amount']">
@@ -43,7 +41,11 @@
           </span>
         </label>
       </form>
-      <div class="fund-paid muted">Pagado: {{ r.paid_amount | clp }}</div>
+      <div class="fund-card-footer">
+        <div class="fund-paid muted">Pagado: {{ r.paid_amount | clp }}</div>
+        {% if r.paid %}<span class="badge fund-badge-paid">Pagado</span>
+        {% else %}<span class="badge fund-badge-pending">Pendiente</span>{% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>
