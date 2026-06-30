@@ -210,6 +210,48 @@ def recent_incomes(month: str, limit: int = 25) -> list[dict]:
         return cur.fetchall()
 
 
+def _month_date(month: str) -> str:
+    """'YYYY-MM' -> 'YYYY-MM-01' (primer día, como se guarda fund_monthly.month)."""
+    return f"{month}-01"
+
+
+def fund_status(month: str) -> list[dict]:
+    """Estado del fondo por categoría compartida. LEFT JOIN: muestra todas las
+    categorías shared aunque no tengan fila ese mes (presupuesto = target_amount)."""
+    sql = """
+        SELECT c.id AS category_id,
+               c.name AS category,
+               COALESCE(fm.budget_amount, c.target_amount, 0)::float8 AS budget_amount,
+               COALESCE(fm.paid_amount, 0)::float8                    AS paid_amount,
+               (COALESCE(fm.budget_amount, c.target_amount, 0)
+                 - COALESCE(fm.paid_amount, 0))::float8               AS remaining,
+               (COALESCE(fm.paid_amount, 0) > 0)                      AS paid
+        FROM categories c
+        LEFT JOIN fund_monthly fm
+          ON fm.category_id = c.id AND fm.month = %(m)s::date
+        WHERE c.classification = 'shared'
+        ORDER BY c.id
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": _month_date(month)})
+        return cur.fetchall()
+
+
+def fund_totals(month: str) -> dict:
+    """Totales del fondo: objetivo (suma de presupuestos), pagado, restante y % consumido."""
+    rows = fund_status(month)
+    objetivo = sum(r["budget_amount"] for r in rows)
+    pagado = sum(r["paid_amount"] for r in rows)
+    restante = objetivo - pagado
+    pct = int(round(100 * pagado / objetivo)) if objetivo > 0 else 0
+    return {
+        "objetivo": objetivo,
+        "pagado": pagado,
+        "restante": restante,
+        "pct": min(pct, 100),
+    }
+
+
 def line_items_filter(month: str, category: str | None = None,
                       merchant: str | None = None) -> list[dict]:
     where = ["r.deleted_at IS NULL", "to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s"]

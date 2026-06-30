@@ -40,6 +40,18 @@ def color_for(name: str) -> str:
     return _FALLBACK[sum(map(ord, name)) % len(_FALLBACK)]
 
 
+FUND_EMOJI = {
+    "Agua": "💧", "Electricidad": "⚡", "Internet": "📡", "Supermercado": "🛒",
+    "Arriendo/Dividendo": "🏠", "Jardín infantil": "🧒", "Auto (cuota)": "🚗",
+    "Restaurantes": "🍽️", "Remesas Venezuela": "💸", "GGCC": "🏢",
+    "Gasolina": "⛽", "TAG": "🛣️", "Ahorro": "🐷",
+}
+
+
+def emoji_for(name: str) -> str:
+    return FUND_EMOJI.get(name, "•")
+
+
 def _clp(value) -> str:
     try:
         return "$" + f"{int(round(float(value))):,}".replace(",", ".")
@@ -49,6 +61,7 @@ def _clp(value) -> str:
 
 templates.env.filters["clp"] = _clp
 templates.env.globals["color_for"] = color_for
+templates.env.globals["emoji_for"] = emoji_for
 
 
 def resolve_month(month: str | None, months: list[str]) -> str:
@@ -69,6 +82,8 @@ def _overview_ctx(request: Request, month: str | None) -> dict:
     inc_kpis = q.income_kpis(month)
     inc_cats = q.income_by_category(month)
     expense_kpis = q.kpis(month)
+    fund_rows = q.fund_status(month)
+    fund_tot = q.fund_totals(month)
     inc_total = float(inc_kpis["total"])
     exp_total = float(expense_kpis["total"])
     balance_pct = int(100 * exp_total / inc_total) if inc_total > 0 else 0
@@ -82,6 +97,8 @@ def _overview_ctx(request: Request, month: str | None) -> dict:
         "income_chart_labels": [c["category"] for c in inc_cats],
         "income_chart_data": [float(c["total"]) for c in inc_cats],
         "balance_pct": min(balance_pct, 100),
+        "fund_rows": fund_rows,
+        "fund_totals": fund_tot,
         "categories": cats,
         "merchants": q.top_merchants(month),
         "receipts": q.recent_receipts(month),

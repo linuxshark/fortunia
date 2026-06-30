@@ -1,0 +1,40 @@
+{# dashboard/templates/_fund.html — Fondo Común: barra de progreso + tarjetas editables #}
+<article class="fund">
+  <header class="fund-header">
+    <strong>Fondo Común del hogar</strong>
+    <span class="fund-figures">
+      <span class="muted">Pagado</span> {{ fund_totals.pagado | clp }}
+      <span class="muted">/ Objetivo</span> {{ fund_totals.objetivo | clp }}
+    </span>
+  </header>
+
+  <div class="fund-bar-wrap" title="Consumido vs objetivo">
+    <div class="fund-bar-fill" style="width: {{ fund_totals.pct }}%"></div>
+  </div>
+  <p class="fund-remaining muted">Restante por pagar: <strong>{{ fund_totals.restante | clp }}</strong> ({{ fund_totals.pct }}% consumido)</p>
+
+  <div class="fund-grid">
+    {% for r in fund_rows %}
+    <div class="fund-card {% if r.paid %}is-paid{% endif %}">
+      <div class="fund-card-head">
+        <span class="fund-emoji">{{ emoji_for(r.category) }}</span>
+        <span class="fund-name">{{ r.category }}</span>
+        {% if r.paid %}<span class="badge paid">Pagado</span>
+        {% else %}<span class="badge pending">Pendiente</span>{% endif %}
+      </div>
+      <form class="fund-budget-form" hx-post="/fund/budget" hx-target="#overview"
+            hx-swap="innerHTML" hx-trigger="change from:input[name='amount']">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="category_id" value="{{ r.category_id }}">
+        <label class="fund-budget-label">Presupuesto
+          <span class="fund-input"><span class="peso">$</span>
+            <input type="number" name="amount" min="0" step="1000"
+                   value="{{ r.budget_amount | round | int }}">
+          </span>
+        </label>
+      </form>
+      <div class="fund-paid muted">Pagado: {{ r.paid_amount | clp }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</article>

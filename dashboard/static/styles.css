@@ -74,3 +74,22 @@ table .num { text-align: right; font-variant-numeric: tabular-nums; }
   height: 100%; background: #dc2626; border-radius: 5px;
   transition: width .4s ease; min-width: 0;
 }
+
+/* ── Fondo Común ─────────────────────────────────────────── */
+.fund { margin: 1rem 0; }
+.fund-header { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.fund-figures { font-variant-numeric: tabular-nums; }
+.fund-bar-wrap { height: 14px; background: #e5e7eb; border-radius: 7px; overflow: hidden; margin: .5rem 0 .25rem; }
+.fund-bar-fill { height: 100%; background: linear-gradient(90deg,#16a34a,#0891b2); transition: width .3s ease; }
+.fund-remaining { margin: 0 0 .75rem; }
+.fund-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .6rem; }
+.fund-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: .6rem .7rem; background: #fff; }
+.fund-card.is-paid { border-color: #16a34a; background: #f0fdf4; }
+.fund-card-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
+.fund-emoji { font-size: 1.1rem; }
+.fund-name { font-weight: 600; font-size: .9rem; flex: 1; }
+.fund-budget-label { font-size: .72rem; color: #6b7280; display: block; }
+.fund-input { display: flex; align-items: center; gap: .2rem; }
+.fund-input .peso { color: #6b7280; }
+.fund-input input { width: 100%; padding: .2rem .3rem; font-variant-numeric: tabular-nums; }
+.fund-paid { font-size: .72rem; margin-top: .3rem; }
