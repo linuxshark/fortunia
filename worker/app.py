@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 import db
 from categorize import categorize, categorize_income, categorize_shared
+from intent import classify
 from text_income import parse_income
 from config import settings
 from extractor import extract_from_bytes
@@ -60,18 +61,9 @@ async def ocr(image: UploadFile = File(...)) -> dict:
     }
 
 
-@app.post("/text")
-def text_expense(payload: TextExpense) -> dict:
-    """Registra un gasto a partir de texto libre ("gaste 40.000 en bencina").
-
-    No pasa por OCR: parsea monto + categoría, mapea la categoría vía
-    item_aliases y persiste un recibo manual con un único line_item.
-    """
-    try:
-        parsed = parse_expense(payload.text)
-    except ParseError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
+def _register_expense(text: str) -> dict:
+    """Parsea texto como gasto y lo persiste como recibo manual. Lanza ParseError."""
+    parsed = parse_expense(text)
     amount = parsed["amount"]
 
     # 1) ¿Es un gasto COMPARTIDO del hogar? -> ruta al Fondo Común (no crea receipt).
@@ -141,27 +133,15 @@ def text_expense(payload: TextExpense) -> dict:
     }
 
 
-class TextIncome(BaseModel):
-    text: str = Field(..., min_length=1, max_length=500)
-
-
-@app.post("/income")
-def income_text(payload: TextIncome) -> dict:
-    """Registra ingreso desde texto libre ("cobré 5.000.000 de sueldo").
-
-    Parsea monto + fuente, categoriza contra aliases de ingresos,
-    persiste en tabla incomes. Sin paso por OCR.
-    """
-    try:
-        parsed = parse_income(payload.text)
-    except ParseError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
+def _register_income(text: str) -> dict:
+    """Parsea texto como ingreso y lo persiste en la tabla incomes. Lanza ParseError."""
+    parsed = parse_income(text)
     # Pass full raw text — verb-based aliases (vendí, sueldo) need it
     cat_id, norm, source = categorize_income(parsed["raw"])
     income_id, _ = db.persist_income(parsed, cat_id)
     return {
         "status": "stored",
+        "kind": "income",
         "income_id": income_id,
         "amount": parsed["amount"],
         "source_text": parsed["source_text"],
@@ -170,3 +150,31 @@ def income_text(payload: TextIncome) -> dict:
         "category_source": source,
         "issued_date": str(date.today()),
     }
+
+
+@app.post("/text")
+def text_entry(payload: TextExpense) -> dict:
+    """Punto de entrada único para texto libre desde Telegram (openclaw).
+
+    Clasifica la intención (ingreso vs gasto) y enruta al flujo correcto:
+    "cobré mi sueldo 4.404.000" → ingreso; "gasté 40.000 en bencina" → gasto.
+    """
+    try:
+        if classify(payload.text) == "income":
+            return _register_income(payload.text)
+        return {"kind": "expense", **_register_expense(payload.text)}
+    except ParseError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+class TextIncome(BaseModel):
+    text: str = Field(..., min_length=1, max_length=500)
+
+
+@app.post("/income")
+def income_text(payload: TextIncome) -> dict:
+    """Registra ingreso desde texto libre, forzando el flujo de ingreso."""
+    try:
+        return _register_income(payload.text)
+    except ParseError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
