@@ -46,12 +46,6 @@ def months_available() -> list[str]:
         SELECT DISTINCT m FROM (
             SELECT to_char(date_trunc('month', COALESCE(issued_date, created_at::date)), 'YYYY-MM') AS m
             FROM receipts WHERE deleted_at IS NULL
-            UNION
-            SELECT to_char(date_trunc('month', issued_date), 'YYYY-MM') AS m
-            FROM incomes WHERE deleted_at IS NULL
-            UNION
-            SELECT to_char(month, 'YYYY-MM') AS m
-            FROM fund_monthly WHERE paid_amount > 0
         ) sub
         ORDER BY m DESC
     """
@@ -166,51 +160,15 @@ def receipt_detail(receipt_id: int) -> tuple[dict | None, list[dict]]:
 
 
 def income_kpis(month: str) -> dict:
-    sql = """
-        SELECT
-          COALESCE(SUM(amount), 0) AS total,
-          COUNT(*)                 AS count
-        FROM incomes
-        WHERE deleted_at IS NULL
-          AND to_char(issued_date, 'YYYY-MM') = %(m)s
-    """
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(sql, {"m": month})
-        return cur.fetchone() or {"total": 0, "count": 0}
+    return {"total": 0, "count": 0}
 
 
 def income_by_category(month: str) -> list[dict]:
-    sql = """
-        SELECT COALESCE(c.name, 'Sin categoría') AS category,
-               SUM(i.amount)                      AS total
-        FROM incomes i
-        LEFT JOIN categories c ON c.id = i.category_id
-        WHERE i.deleted_at IS NULL
-          AND to_char(i.issued_date, 'YYYY-MM') = %(m)s
-        GROUP BY 1
-        HAVING SUM(i.amount) > 0
-        ORDER BY 2 DESC
-    """
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(sql, {"m": month})
-        return cur.fetchall()
+    return []
 
 
 def recent_incomes(month: str, limit: int = 25) -> list[dict]:
-    sql = """
-        SELECT i.id, i.issued_date, i.source_text,
-               COALESCE(c.name, 'Sin categoría') AS category,
-               i.amount
-        FROM incomes i
-        LEFT JOIN categories c ON c.id = i.category_id
-        WHERE i.deleted_at IS NULL
-          AND to_char(i.issued_date, 'YYYY-MM') = %(m)s
-        ORDER BY i.issued_date DESC, i.id DESC
-        LIMIT %(lim)s
-    """
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(sql, {"m": month, "lim": limit})
-        return cur.fetchall()
+    return []
 
 
 def _month_date(month: str) -> str:
