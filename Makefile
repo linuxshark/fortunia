@@ -14,12 +14,14 @@ DASHBOARD_URL := http://localhost:8001
 deploy: .env
 	$(COMPOSE) up -d --build
 	@$(MAKE) --no-print-directory wait-ready
+	@$(MAKE) --no-print-directory fund
 
 ## up: start services without rebuilding
 .PHONY: up
 up: .env
 	$(COMPOSE) up -d
 	@$(MAKE) --no-print-directory wait-ready
+	@$(MAKE) --no-print-directory fund
 
 ## build: rebuild worker image only
 .PHONY: build
@@ -58,12 +60,25 @@ stop:
 down:
 	$(COMPOSE) down
 
-## destroy: remove containers AND volumes (wipes DB data)
+## destroy: remove containers, volumes, images, networks (FULL WIPE)
 .PHONY: destroy
 destroy:
-	@echo "AVISO: esto borra todos los datos de Postgres."
-	@read -p "¿Continuar? [s/N] " ans && [ "$$ans" = "s" ]
-	$(COMPOSE) down -v
+	@echo "⚠️  DESTRUCCIÓN COMPLETA:"
+	@echo "  • Containers"
+	@echo "  • Volúmenes (BD, datos de Postgres)"
+	@echo "  • Imágenes Docker (fortunia-worker, fortunia-dashboard)"
+	@echo "  • Redes Docker"
+	@echo ""
+	@read -p "¿Continuar? Escribe 'si' para confirmar: " ans && [ "$$ans" = "si" ]
+	@$(COMPOSE) down -v --rmi all
+	@echo ""
+	@echo "✓ Containers, volúmenes, imágenes y redes eliminados"
+	@echo ""
+	@read -p "¿Borrar también datos locales (fotos + backups)? [s/N]: " ans && if [ "$$ans" = "s" ]; then \
+		rm -rf ./data/images/* ./backups/*; \
+		echo "✓ Datos locales eliminados (./data/images y ./backups)"; \
+	fi
+	@echo ""
 	@echo "Listo. Ejecuta 'make deploy' para empezar desde cero."
 
 ## restart: restart worker only (without rebuild)
@@ -201,6 +216,27 @@ backup:
 		pg_dump -U $${POSTGRES_USER:-boleta} $${POSTGRES_DB:-boletas} \
 		| gzip > backups/manual-$$(date +%Y%m%d-%H%M%S).sql.gz
 	@echo "Backup guardado en backups/"
+
+## fund: aplica el DDL del fondo (06_fund.sql, 07_fund_payments.sql) a la DB en marcha (idempotente)
+.PHONY: fund
+fund:
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/06_fund.sql
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/07_fund_payments.sql
+	@$(MAKE) --no-print-directory ro-role
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} \
+		-c "GRANT SELECT, INSERT, UPDATE ON fund_monthly TO $${POSTGRES_RO_USER:-fortunia_ro};"
+	@echo "✓ Fondo Común aplicado (schema + grant RW acotado)"
+
+## test: unit + DB-integration del worker (requiere `make deploy` para los DB)
+.PHONY: test
+test:
+	cd worker && pytest -v
+
+## e2e: instala Playwright (si falta) y corre los tests E2E del dashboard
+.PHONY: e2e
+e2e:
+	cd e2e && pip install -q -r requirements.txt && python -m playwright install --with-deps chromium
+	cd e2e && pytest -v
 
 # ── help ──────────────────────────────────────────────────────────────────────
 

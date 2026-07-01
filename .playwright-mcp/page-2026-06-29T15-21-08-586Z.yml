@@ -1,0 +1,38 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - list [ref=e3]:
+      - listitem [ref=e4]:
+        - link "fortunia gastos" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - strong [ref=e6]: fortunia
+          - text: gastos
+    - list [ref=e7]:
+      - listitem [ref=e8]:
+        - link "Resumen" [ref=e9] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=e10]:
+        - link "Gastos" [ref=e11] [cursor=pointer]:
+          - /url: /expenses
+      - listitem [ref=e12]:
+        - link "Ingresos" [ref=e13] [cursor=pointer]:
+          - /url: /incomes
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Ingresos" [level=1] [ref=e17]
+        - paragraph [ref=e18]: "Total del mes: $0"
+      - combobox "Mes" [ref=e20]:
+        - option "2026-06"
+        - option "2025-01" [selected]
+    - article [ref=e21]:
+      - table [ref=e22]:
+        - rowgroup [ref=e23]:
+          - row "Fecha Fuente Categoría Monto" [ref=e24]:
+            - columnheader "Fecha" [ref=e25]
+            - columnheader "Fuente" [ref=e26]
+            - columnheader "Categoría" [ref=e27]
+            - columnheader "Monto" [ref=e28]
+        - rowgroup [ref=e29]:
+          - row "Sin ingresos registrados este mes." [ref=e30]:
+            - cell "Sin ingresos registrados este mes." [ref=e31]
+  - contentinfo [ref=e32]: fortunia dashboard · solo lectura · puerto 8001

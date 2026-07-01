@@ -1,0 +1,105 @@
+- generic [active] [ref=f3e1]:
+  - navigation [ref=f3e2]:
+    - list [ref=f3e3]:
+      - listitem [ref=f3e4]:
+        - link "fortunia gastos" [ref=f3e5] [cursor=pointer]:
+          - /url: /
+          - strong [ref=f3e6]: fortunia
+          - text: gastos
+    - list [ref=f3e7]:
+      - listitem [ref=f3e8]:
+        - link "Resumen" [ref=f3e9] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=f3e10]:
+        - link "Gastos" [ref=f3e11] [cursor=pointer]:
+          - /url: /expenses
+      - listitem [ref=f3e12]:
+        - link "Ingresos" [ref=f3e13] [cursor=pointer]:
+          - /url: /incomes
+  - main [ref=f3e14]:
+    - generic [ref=f3e16]:
+      - heading "Gastos" [level=1] [ref=f3e17]
+      - paragraph [ref=f3e18]: 6 ítems · total $221.500
+    - article [ref=f3e19]:
+      - generic [ref=f3e20]:
+        - combobox "Mes" [ref=f3e21]:
+          - option "2026-06" [selected]
+        - combobox "Categoría" [ref=f3e22]:
+          - option "Todas las categorías" [selected]
+          - option "Servicios"
+          - option "Transporte"
+          - option "Restaurant"
+          - option "Entretenimiento"
+        - button "Filtrar" [ref=f3e23] [cursor=pointer]
+      - table [ref=f3e24]:
+        - rowgroup [ref=f3e25]:
+          - row "Fecha Comercio Producto Categoría Cant. P. unit Total" [ref=f3e26]:
+            - columnheader "Fecha" [ref=f3e27]
+            - columnheader "Comercio" [ref=f3e28]
+            - columnheader "Producto" [ref=f3e29]
+            - columnheader "Categoría" [ref=f3e30]
+            - columnheader "Cant." [ref=f3e31]
+            - columnheader "P. unit" [ref=f3e32]
+            - columnheader "Total" [ref=f3e33]
+        - rowgroup [ref=f3e34]:
+          - row "2026-06-30 Sin comercio Cine Entretenimiento 1 $8.000 $8.000" [ref=f3e35]:
+            - cell "2026-06-30" [ref=f3e36]
+            - cell "Sin comercio" [ref=f3e37]:
+              - link "Sin comercio" [ref=f3e38] [cursor=pointer]:
+                - /url: /receipt/6
+            - cell "Cine" [ref=f3e39]
+            - cell "Entretenimiento" [ref=f3e40]: Entretenimiento
+            - cell "1" [ref=f3e42]
+            - cell "$8.000" [ref=f3e43]
+            - cell "$8.000" [ref=f3e44]
+          - row "2026-06-30 Sin comercio Electricidad Servicios 1 $55.000 $55.000" [ref=f3e45]:
+            - cell "2026-06-30" [ref=f3e46]
+            - cell "Sin comercio" [ref=f3e47]:
+              - link "Sin comercio" [ref=f3e48] [cursor=pointer]:
+                - /url: /receipt/5
+            - cell "Electricidad" [ref=f3e49]
+            - cell "Servicios" [ref=f3e50]: Servicios
+            - cell "1" [ref=f3e52]
+            - cell "$55.000" [ref=f3e53]
+            - cell "$55.000" [ref=f3e54]
+          - row "2026-06-30 Sin comercio Electricidad Servicios 1 $55.000 $55.000" [ref=f3e55]:
+            - cell "2026-06-30" [ref=f3e56]
+            - cell "Sin comercio" [ref=f3e57]:
+              - link "Sin comercio" [ref=f3e58] [cursor=pointer]:
+                - /url: /receipt/4
+            - cell "Electricidad" [ref=f3e59]
+            - cell "Servicios" [ref=f3e60]: Servicios
+            - cell "1" [ref=f3e62]
+            - cell "$55.000" [ref=f3e63]
+            - cell "$55.000" [ref=f3e64]
+          - row "2026-06-30 Sin comercio Electricidad Servicios 1 $55.000 $55.000" [ref=f3e65]:
+            - cell "2026-06-30" [ref=f3e66]
+            - cell "Sin comercio" [ref=f3e67]:
+              - link "Sin comercio" [ref=f3e68] [cursor=pointer]:
+                - /url: /receipt/3
+            - cell "Electricidad" [ref=f3e69]
+            - cell "Servicios" [ref=f3e70]: Servicios
+            - cell "1" [ref=f3e72]
+            - cell "$55.000" [ref=f3e73]
+            - cell "$55.000" [ref=f3e74]
+          - row "2026-06-29 Sin comercio Almuerzo Restaurant 1 $8.500 $8.500" [ref=f3e75]:
+            - cell "2026-06-29" [ref=f3e76]
+            - cell "Sin comercio" [ref=f3e77]:
+              - link "Sin comercio" [ref=f3e78] [cursor=pointer]:
+                - /url: /receipt/2
+            - cell "Almuerzo" [ref=f3e79]
+            - cell "Restaurant" [ref=f3e80]: Restaurant
+            - cell "1" [ref=f3e82]
+            - cell "$8.500" [ref=f3e83]
+            - cell "$8.500" [ref=f3e84]
+          - row "2026-06-29 Sin comercio Bencina Transporte 1 $40.000 $40.000" [ref=f3e85]:
+            - cell "2026-06-29" [ref=f3e86]
+            - cell "Sin comercio" [ref=f3e87]:
+              - link "Sin comercio" [ref=f3e88] [cursor=pointer]:
+                - /url: /receipt/1
+            - cell "Bencina" [ref=f3e89]
+            - cell "Transporte" [ref=f3e90]: Transporte
+            - cell "1" [ref=f3e92]
+            - cell "$40.000" [ref=f3e93]
+            - cell "$40.000" [ref=f3e94]
+  - contentinfo [ref=f3e95]: fortunia dashboard · solo lectura · puerto 8001

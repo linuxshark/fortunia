@@ -43,9 +43,16 @@ def current_month() -> str:
 
 def months_available() -> list[str]:
     sql = """
-        SELECT DISTINCT to_char(date_trunc('month', COALESCE(issued_date, created_at::date)), 'YYYY-MM') AS m
-        FROM receipts
-        WHERE deleted_at IS NULL
+        SELECT DISTINCT m FROM (
+            SELECT to_char(date_trunc('month', COALESCE(issued_date, created_at::date)), 'YYYY-MM') AS m
+            FROM receipts WHERE deleted_at IS NULL
+            UNION
+            SELECT to_char(date_trunc('month', issued_date), 'YYYY-MM') AS m
+            FROM incomes WHERE deleted_at IS NULL
+            UNION
+            SELECT to_char(month, 'YYYY-MM') AS m
+            FROM fund_monthly WHERE paid_amount > 0
+        ) sub
         ORDER BY m DESC
     """
     with connect() as conn, conn.cursor() as cur:
@@ -158,6 +165,116 @@ def receipt_detail(receipt_id: int) -> tuple[dict | None, list[dict]]:
         return header, cur.fetchall()
 
 
+def income_kpis(month: str) -> dict:
+    sql = """
+        SELECT
+          COALESCE(SUM(amount), 0) AS total,
+          COUNT(*)                 AS count
+        FROM incomes
+        WHERE deleted_at IS NULL
+          AND to_char(issued_date, 'YYYY-MM') = %(m)s
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": month})
+        return cur.fetchone() or {"total": 0, "count": 0}
+
+
+def income_by_category(month: str) -> list[dict]:
+    sql = """
+        SELECT COALESCE(c.name, 'Sin categoría') AS category,
+               SUM(i.amount)                      AS total
+        FROM incomes i
+        LEFT JOIN categories c ON c.id = i.category_id
+        WHERE i.deleted_at IS NULL
+          AND to_char(i.issued_date, 'YYYY-MM') = %(m)s
+        GROUP BY 1
+        HAVING SUM(i.amount) > 0
+        ORDER BY 2 DESC
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": month})
+        return cur.fetchall()
+
+
+def recent_incomes(month: str, limit: int = 25) -> list[dict]:
+    sql = """
+        SELECT i.id, i.issued_date, i.source_text,
+               COALESCE(c.name, 'Sin categoría') AS category,
+               i.amount
+        FROM incomes i
+        LEFT JOIN categories c ON c.id = i.category_id
+        WHERE i.deleted_at IS NULL
+          AND to_char(i.issued_date, 'YYYY-MM') = %(m)s
+        ORDER BY i.issued_date DESC, i.id DESC
+        LIMIT %(lim)s
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": month, "lim": limit})
+        return cur.fetchall()
+
+
+def _month_date(month: str) -> str:
+    """'YYYY-MM' -> 'YYYY-MM-01' (primer día, como se guarda fund_monthly.month)."""
+    return f"{month}-01"
+
+
+def fund_status(month: str) -> list[dict]:
+    """Estado del fondo por categoría compartida. LEFT JOIN: muestra todas las
+    categorías shared aunque no tengan fila ese mes (presupuesto = target_amount).
+    'paid_amount' viene del ledger fund_payments vía v_fund_paid (respeta
+    accumulation_mode: suma para Alimentos/Restaurantes, último pago para el resto)."""
+    sql = """
+        SELECT c.id AS category_id,
+               c.name AS category,
+               COALESCE(fm.budget_amount, c.target_amount, 0)::float8 AS budget_amount,
+               COALESCE(vp.paid_amount, 0)::float8                    AS paid_amount,
+               (COALESCE(fm.budget_amount, c.target_amount, 0)
+                 - COALESCE(vp.paid_amount, 0))::float8                AS remaining,
+               (COALESCE(vp.paid_amount, 0) > 0)                      AS paid
+        FROM categories c
+        LEFT JOIN fund_monthly fm
+          ON fm.category_id = c.id AND fm.month = %(m)s::date
+        LEFT JOIN v_fund_paid vp
+          ON vp.category_id = c.id AND vp.month = %(m)s::date
+        WHERE c.classification = 'shared'
+        ORDER BY c.id
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": _month_date(month)})
+        return cur.fetchall()
+
+
+def fund_totals(month: str) -> dict:
+    """Totales del fondo: objetivo, pagado, restante, barra y color (tanque drenándose)."""
+    rows = fund_status(month)
+    objetivo = sum(r["budget_amount"] for r in rows)
+    pagado = sum(r["paid_amount"] for r in rows)
+    restante = objetivo - pagado
+    pct_consumido = int(round(100 * pagado / objetivo)) if objetivo > 0 else 0
+    overspent = pagado > objetivo
+
+    # Barra = fondo restante (se achica conforme se paga)
+    bar_width = max(0, 100 - pct_consumido)
+
+    # Color: amarillo (hsl 55°) → verde (hsl 142°) conforme se consume; rojo si excedido
+    if overspent:
+        bar_color = "hsl(0, 72%, 51%)"
+    else:
+        hue = 55 + int(87 * min(pct_consumido / 100, 1.0))
+        bar_color = f"hsl({hue}, 80%, 40%)"
+
+    return {
+        "objetivo": objetivo,
+        "pagado": pagado,
+        "restante": restante,
+        "pct": pct_consumido,
+        "bar_width": bar_width,
+        "bar_color": bar_color,
+        "overspent": overspent,
+        "excedido": max(0.0, pagado - objetivo),
+    }
+
+
 def line_items_filter(month: str, category: str | None = None,
                       merchant: str | None = None) -> list[dict]:
     where = ["r.deleted_at IS NULL", "to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s"]
@@ -179,6 +296,50 @@ def line_items_filter(month: str, category: str | None = None,
         LEFT JOIN roots ro ON ro.id = li.category_id
         WHERE {' AND '.join(where)}
         ORDER BY COALESCE(r.issued_date, r.created_at::date) DESC, r.id DESC, li.line_no
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
+
+
+def fund_payments_for_month(month: str, category: str | None = None) -> list[dict]:
+    """Pagos individuales del Fondo Común este mes (ledger fund_payments), con la
+    misma forma de fila que line_items_filter() para listarlos junto a los gastos
+    OCR en /expenses. Solo para el listado visual — no toca receipts/line_items
+    ni los KPIs.
+
+    Para categorías 'sum' (Alimentos, Restaurantes) se listan TODAS las
+    transacciones (cada comida/compra cuenta). Para categorías 'replace'
+    (boletas fijas) solo se lista el pago más reciente — los anteriores son
+    correcciones de monto, no gastos adicionales, y no deben duplicar el total."""
+    where = ["month = %(m)s::date", "(accumulation_mode = 'sum' OR rn = 1)"]
+    params: dict = {"m": _month_date(month)}
+    if category:
+        where.append("cat_name = %(cat)s")
+        params["cat"] = category
+    sql = f"""
+        WITH ranked AS (
+            SELECT fp.*, c.name AS cat_name, c.accumulation_mode,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY fp.category_id, fp.month
+                     ORDER BY fp.paid_at DESC, fp.id DESC
+                   ) AS rn
+            FROM fund_payments fp
+            JOIN categories c ON c.id = fp.category_id
+            WHERE fp.month = %(m)s::date
+        )
+        SELECT NULL::bigint                          AS receipt_id,
+               paid_at::date                          AS issued_date,
+               'Fondo Común'                          AS merchant,
+               cat_name                                AS category,
+               COALESCE(detail, cat_name)              AS normalized_name,
+               detail                                   AS raw_text,
+               1                                        AS qty,
+               amount                                   AS unit_price,
+               amount                                   AS line_total
+        FROM ranked
+        WHERE {' AND '.join(where)}
+        ORDER BY issued_date DESC
     """
     with connect() as conn, conn.cursor() as cur:
         cur.execute(sql, params)

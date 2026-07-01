@@ -98,3 +98,73 @@ def persist(result: dict) -> tuple[int | None, bool]:
         except errors.UniqueViolation:
             conn.rollback()
             return None, False               # same rut+folio+doc_type already stored
+
+
+def upsert_fund_payment(
+    category_id: int, month, amount: int, source: str, detail: str | None = None
+) -> tuple:
+    """Registra un pago de categoría compartida en el ledger (fund_payments).
+
+    Siempre inserta una fila nueva en el ledger (con su detalle, ej. "KFC") para
+    no perder el historial de transacciones. Cuánto cuenta como "pagado" para el
+    mes depende de categories.accumulation_mode (ver v_fund_paid):
+      'replace' (boletas fijas: Arriendo, Agua, Luz) -> el pago más reciente
+      'sum'     (gasto variable: Alimentos, Restaurantes) -> se suman todos
+
+    Devuelve (paid_amount, remaining) ya resueltos según ese modo.
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO fund_monthly (category_id, month, budget_amount, paid_amount, source)
+            VALUES (
+                %(cat)s, %(month)s,
+                COALESCE((SELECT target_amount FROM categories WHERE id = %(cat)s), 0),
+                0, %(source)s
+            )
+            ON CONFLICT (category_id, month) DO NOTHING
+            """,
+            {"cat": category_id, "month": month, "source": source},
+        )
+        cur.execute(
+            """
+            INSERT INTO fund_payments (category_id, month, amount, detail, source)
+            VALUES (%(cat)s, %(month)s, %(amount)s, %(detail)s, %(source)s)
+            """,
+            {"cat": category_id, "month": month, "amount": amount, "detail": detail, "source": source},
+        )
+        cur.execute(
+            """
+            SELECT fm.budget_amount,
+                   COALESCE(vp.paid_amount, 0)                                AS paid_amount,
+                   (fm.budget_amount - COALESCE(vp.paid_amount, 0))           AS remaining
+            FROM fund_monthly fm
+            LEFT JOIN v_fund_paid vp ON vp.category_id = fm.category_id AND vp.month = fm.month
+            WHERE fm.category_id = %(cat)s AND fm.month = %(month)s
+            """,
+            {"cat": category_id, "month": month},
+        )
+        row = cur.fetchone()
+        conn.commit()
+    return row["paid_amount"], row["remaining"]
+
+
+def persist_income(parsed: dict, category_id: int | None) -> tuple[int, bool]:
+    """Insert a row into incomes. No idempotency — same income on different days is valid."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO incomes (category_id, amount, source_text, raw_text, issued_date)
+            VALUES (%(category_id)s, %(amount)s, %(source_text)s, %(raw_text)s, CURRENT_DATE)
+            RETURNING id
+            """,
+            {
+                "category_id": category_id,
+                "amount": parsed["amount"],
+                "source_text": parsed["source_text"],
+                "raw_text": parsed["raw"],
+            },
+        )
+        income_id = cur.fetchone()["id"]
+        conn.commit()
+    return income_id, True

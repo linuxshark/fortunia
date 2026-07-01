@@ -7,12 +7,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import queries as q
+import writes
 from config import settings
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -40,6 +41,18 @@ def color_for(name: str) -> str:
     return _FALLBACK[sum(map(ord, name)) % len(_FALLBACK)]
 
 
+FUND_EMOJI = {
+    "Agua": "💧", "Electricidad": "⚡", "Internet": "📡", "Supermercado": "🛒",
+    "Arriendo/Dividendo": "🏠", "Jardín infantil": "🧒", "Auto (cuota)": "🚗",
+    "Restaurantes": "🍽️", "Remesas Venezuela": "💸", "GGCC": "🏢",
+    "Gasolina": "⛽", "TAG": "🛣️", "Ahorro": "🐷",
+}
+
+
+def emoji_for(name: str) -> str:
+    return FUND_EMOJI.get(name, "•")
+
+
 def _clp(value) -> str:
     try:
         return "$" + f"{int(round(float(value))):,}".replace(",", ".")
@@ -49,6 +62,7 @@ def _clp(value) -> str:
 
 templates.env.filters["clp"] = _clp
 templates.env.globals["color_for"] = color_for
+templates.env.globals["emoji_for"] = emoji_for
 
 
 def resolve_month(month: str | None, months: list[str]) -> str:
@@ -66,11 +80,26 @@ def _overview_ctx(request: Request, month: str | None) -> dict:
     months = q.months_available()
     month = resolve_month(month, months)
     cats = q.category_breakdown(month)
+    inc_kpis = q.income_kpis(month)
+    inc_cats = q.income_by_category(month)
+    expense_kpis = q.kpis(month)
+    fund_rows = q.fund_status(month)
+    fund_tot = q.fund_totals(month)
+    inc_total = float(inc_kpis["total"])
+    exp_total = float(expense_kpis["total"])
+    balance_pct = int(100 * exp_total / inc_total) if inc_total > 0 else 0
     return {
         "request": request,
         "month": month,
         "months": months,
-        "kpis": q.kpis(month),
+        "kpis": expense_kpis,
+        "income_kpis": inc_kpis,
+        "income_categories": inc_cats,
+        "income_chart_labels": [c["category"] for c in inc_cats],
+        "income_chart_data": [float(c["total"]) for c in inc_cats],
+        "balance_pct": min(balance_pct, 100),
+        "fund_rows": fund_rows,
+        "fund_totals": fund_tot,
         "categories": cats,
         "merchants": q.top_merchants(month),
         "receipts": q.recent_receipts(month),
@@ -95,6 +124,16 @@ def overview_partial(request: Request, month: str | None = None):
     return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
 
 
+@app.post("/fund/budget", response_class=HTMLResponse)
+def fund_budget(request: Request, category_id: int = Form(...),
+                month: str = Form(...), amount: int = Form(...)):
+    """Edita el presupuesto mensual de una categoría compartida (escritura acotada)."""
+    if amount < 0:
+        amount = 0
+    writes.set_budget(category_id, month, amount)
+    return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
+
+
 @app.get("/category/{root}", response_class=HTMLResponse)
 def category(request: Request, root: str, month: str | None = None):
     months = q.months_available()
@@ -115,19 +154,38 @@ def receipt(request: Request, receipt_id: int):
     })
 
 
+@app.get("/incomes", response_class=HTMLResponse)
+def incomes(request: Request, month: str | None = None):
+    months = q.months_available()
+    month = resolve_month(month, months)
+    rows = q.recent_incomes(month)
+    total = sum(float(r["amount"] or 0) for r in rows)
+    return templates.TemplateResponse(request, "incomes.html", {
+        "request": request, "month": month, "months": months,
+        "rows": rows, "total": total,
+    })
+
+
 @app.get("/expenses", response_class=HTMLResponse)
 def expenses(request: Request, month: str | None = None,
              category: str | None = None, merchant: str | None = None):
     months = q.months_available()
     month = resolve_month(month, months)
     rows = q.line_items_filter(month, category, merchant)
+    # Pagos del Fondo Común: se unen solo para el listado (no afectan KPIs de OCR).
+    # El filtro de comercio no aplica — esos pagos no tienen un comercio real asociado.
+    if not merchant:
+        rows = rows + q.fund_payments_for_month(month, category)
+        rows.sort(key=lambda r: (r["issued_date"], r["receipt_id"] or 0), reverse=True)
     cats = q.category_breakdown(month)
+    fund_cats = q.fund_payments_for_month(month)
     total = sum(float(r["line_total"] or 0) for r in rows)
+    all_categories = sorted({c["category"] for c in cats} | {r["category"] for r in fund_cats})
     return templates.TemplateResponse(request, "expenses.html", {
         "request": request, "month": month, "months": months,
         "category": category, "merchant": merchant,
         "rows": rows, "total": total,
-        "all_categories": [c["category"] for c in cats],
+        "all_categories": all_categories,
     })
 
 

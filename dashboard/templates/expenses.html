@@ -30,10 +30,10 @@
       {% for r in rows %}
       <tr>
         <td>{{ r.issued_date }}</td>
-        <td><a href="/receipt/{{ r.receipt_id }}">{{ r.merchant }}</a></td>
+        <td>{% if r.receipt_id %}<a href="/receipt/{{ r.receipt_id }}">{{ r.merchant }}</a>{% else %}{{ r.merchant }}{% endif %}</td>
         <td>{{ r.normalized_name or r.raw_text or '—' }}</td>
         <td><span class="dot" style="background:{{ color_for(r.category) }}"></span>{{ r.category }}</td>
-        <td class="num">{{ r.qty }}</td>
+        <td class="num">{{ r.qty | int }}</td>
         <td class="num">{{ r.unit_price | clp }}</td>
         <td class="num">{{ r.line_total | clp }}</td>
       </tr>

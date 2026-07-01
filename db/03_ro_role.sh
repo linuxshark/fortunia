@@ -28,4 +28,19 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 	ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${POSTGRES_RO_USER};
 EOSQL
 
+# Fondo Común: el dashboard escribe SOLO fund_monthly (presupuesto). Resto SELECT-only.
+# Condicional y en un statement aparte: en un init fresco este script (03) corre
+# ANTES que 06_fund.sql cree fund_monthly. Sin el IF EXISTS, el GRANT falla y
+# docker-entrypoint-initdb.d aborta el resto de la secuencia (04/05/06/07 nunca
+# se aplican). make fund reintenta esto después de que la tabla ya existe.
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "
+DO \$\$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'fund_monthly') THEN
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE ON fund_monthly TO %I', '${POSTGRES_RO_USER}');
+  END IF;
+END
+\$\$;
+"
+
 echo "✓ Rol ${POSTGRES_RO_USER} listo (SELECT-only sobre $POSTGRES_DB)"

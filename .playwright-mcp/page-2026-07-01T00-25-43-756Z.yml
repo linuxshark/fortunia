@@ -1,0 +1,297 @@
+- generic [active] [ref=f11e1]:
+  - navigation [ref=f11e2]:
+    - list [ref=f11e3]:
+      - listitem [ref=f11e4]:
+        - link "fortunia gastos" [ref=f11e5] [cursor=pointer]:
+          - /url: /
+          - strong [ref=f11e6]: fortunia
+          - text: gastos
+    - list [ref=f11e7]:
+      - listitem [ref=f11e8]:
+        - link "Resumen" [ref=f11e9] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=f11e10]:
+        - link "Gastos" [ref=f11e11] [cursor=pointer]:
+          - /url: /expenses
+      - listitem [ref=f11e12]:
+        - link "Ingresos" [ref=f11e13] [cursor=pointer]:
+          - /url: /incomes
+  - main [ref=f11e14]:
+    - generic [ref=f11e15]:
+      - generic [ref=f11e16]:
+        - heading "Resumen de gastos" [level=1] [ref=f11e17]
+        - paragraph [ref=f11e18]: Gasto por categoría y detalle de boletas
+      - combobox "Mes" [ref=f11e20]:
+        - option "2026-06" [selected]
+    - generic [ref=f11e21]:
+      - article [ref=f11e22]:
+        - generic [ref=f11e23]:
+          - strong [ref=f11e24]: Ingresos del mes
+          - generic [ref=f11e25]: $9.750.000
+        - table [ref=f11e28]:
+          - rowgroup [ref=f11e29]:
+            - row "Laboral $9.400.000" [ref=f11e30]:
+              - cell "Laboral" [ref=f11e31]
+              - cell "$9.400.000" [ref=f11e32]
+            - row "Ventas $350.000" [ref=f11e33]:
+              - cell "Ventas" [ref=f11e34]
+              - cell "$350.000" [ref=f11e35]
+      - article [ref=f11e36]:
+        - strong [ref=f11e38]: Balance mensual
+        - generic [ref=f11e39]:
+          - generic [ref=f11e40]:
+            - generic [ref=f11e41]: Ingresos
+            - strong [ref=f11e42]: $9.750.000
+          - generic [ref=f11e43]:
+            - generic [ref=f11e44]: Gastos
+            - strong [ref=f11e45]: $221.500
+          - generic [ref=f11e46]:
+            - generic [ref=f11e47]: Ahorro
+            - strong [ref=f11e48]: 98%
+        - generic "Gastos vs Ingresos" [ref=f11e49]
+      - article [ref=f11e51]:
+        - generic [ref=f11e52]:
+          - strong [ref=f11e53]: Fondo Común del hogar
+          - generic [ref=f11e54]: Pagado $90.000 / Objetivo $3.721.000
+        - generic "2% del fondo utilizado" [ref=f11e55]
+        - paragraph [ref=f11e57]:
+          - text: "Fondo disponible:"
+          - strong [ref=f11e58]: $3.631.000
+          - text: (2% utilizado)
+        - generic [ref=f11e59]:
+          - generic [ref=f11e60]:
+            - generic [ref=f11e61]:
+              - generic [ref=f11e62]: 💧
+              - generic [ref=f11e63]: Agua
+            - generic [ref=f11e65]:
+              - text: Presupuesto
+              - generic [ref=f11e66]:
+                - generic [ref=f11e67]: $
+                - spinbutton "Presupuesto $" [ref=f11e68]: "30000"
+            - generic [ref=f11e70]: Pagado
+          - generic [ref=f11e71]:
+            - generic [ref=f11e72]:
+              - generic [ref=f11e73]: ⚡
+              - generic [ref=f11e74]: Electricidad
+            - generic [ref=f11e76]:
+              - text: Presupuesto
+              - generic [ref=f11e77]:
+                - generic [ref=f11e78]: $
+                - spinbutton "Presupuesto $" [ref=f11e79]: "55000"
+            - generic [ref=f11e81]: Pagado
+          - generic [ref=f11e82]:
+            - generic [ref=f11e83]:
+              - generic [ref=f11e84]: 📡
+              - generic [ref=f11e85]: Internet
+            - generic [ref=f11e87]:
+              - text: Presupuesto
+              - generic [ref=f11e88]:
+                - generic [ref=f11e89]: $
+                - spinbutton "Presupuesto $" [ref=f11e90]: "34000"
+            - generic [ref=f11e92]: Pendiente
+          - generic [ref=f11e93]:
+            - generic [ref=f11e94]:
+              - generic [ref=f11e95]: •
+              - generic [ref=f11e96]: Alimentos
+            - generic [ref=f11e98]:
+              - text: Presupuesto
+              - generic [ref=f11e99]:
+                - generic [ref=f11e100]: $
+                - spinbutton "Presupuesto $" [ref=f11e101]: "500000"
+            - generic [ref=f11e103]: Pendiente
+          - generic [ref=f11e104]:
+            - generic [ref=f11e105]:
+              - generic [ref=f11e106]: •
+              - generic [ref=f11e107]: Arriendo
+            - generic [ref=f11e109]:
+              - text: Presupuesto
+              - generic [ref=f11e110]:
+                - generic [ref=f11e111]: $
+                - spinbutton "Presupuesto $" [ref=f11e112]: "800000"
+            - generic [ref=f11e114]: Pendiente
+          - generic [ref=f11e115]:
+            - generic [ref=f11e116]:
+              - generic [ref=f11e117]: •
+              - generic [ref=f11e118]: Jardin
+            - generic [ref=f11e120]:
+              - text: Presupuesto
+              - generic [ref=f11e121]:
+                - generic [ref=f11e122]: $
+                - spinbutton "Presupuesto $" [ref=f11e123]: "450000"
+            - generic [ref=f11e125]: Pendiente
+          - generic [ref=f11e126]:
+            - generic [ref=f11e127]:
+              - generic [ref=f11e128]: 🚗
+              - generic [ref=f11e129]: Auto (cuota)
+            - generic [ref=f11e131]:
+              - text: Presupuesto
+              - generic [ref=f11e132]:
+                - generic [ref=f11e133]: $
+                - spinbutton "Presupuesto $" [ref=f11e134]: "472000"
+            - generic [ref=f11e136]: Pendiente
+          - generic [ref=f11e137]:
+            - generic [ref=f11e138]:
+              - generic [ref=f11e139]: 🍽️
+              - generic [ref=f11e140]: Restaurantes
+            - generic [ref=f11e142]:
+              - text: Presupuesto
+              - generic [ref=f11e143]:
+                - generic [ref=f11e144]: $
+                - spinbutton "Presupuesto $" [ref=f11e145]: "250000"
+            - generic [ref=f11e147]: Pendiente
+          - generic [ref=f11e148]:
+            - generic [ref=f11e149]:
+              - generic [ref=f11e150]: •
+              - generic [ref=f11e151]: Remesas
+            - generic [ref=f11e153]:
+              - text: Presupuesto
+              - generic [ref=f11e154]:
+                - generic [ref=f11e155]: $
+                - spinbutton "Presupuesto $" [ref=f11e156]: "350000"
+            - generic [ref=f11e158]: Pendiente
+          - generic [ref=f11e159]:
+            - generic [ref=f11e160]:
+              - generic [ref=f11e161]: 🏢
+              - generic [ref=f11e162]: GGCC
+            - generic [ref=f11e164]:
+              - text: Presupuesto
+              - generic [ref=f11e165]:
+                - generic [ref=f11e166]: $
+                - spinbutton "Presupuesto $" [ref=f11e167]: "100000"
+            - generic [ref=f11e169]: Pendiente
+          - generic [ref=f11e170]:
+            - generic [ref=f11e171]:
+              - generic [ref=f11e172]: ⛽
+              - generic [ref=f11e173]: Gasolina
+            - generic [ref=f11e175]:
+              - text: Presupuesto
+              - generic [ref=f11e176]:
+                - generic [ref=f11e177]: $
+                - spinbutton "Presupuesto $" [ref=f11e178]: "100000"
+            - generic [ref=f11e180]: Pendiente
+          - generic [ref=f11e181]:
+            - generic [ref=f11e182]:
+              - generic [ref=f11e183]: 🛣️
+              - generic [ref=f11e184]: TAG
+            - generic [ref=f11e186]:
+              - text: Presupuesto
+              - generic [ref=f11e187]:
+                - generic [ref=f11e188]: $
+                - spinbutton "Presupuesto $" [ref=f11e189]: "80000"
+            - generic [ref=f11e191]: Pendiente
+          - generic [ref=f11e192]:
+            - generic [ref=f11e193]:
+              - generic [ref=f11e194]: 🐷
+              - generic [ref=f11e195]: Ahorro
+            - generic [ref=f11e197]:
+              - text: Presupuesto
+              - generic [ref=f11e198]:
+                - generic [ref=f11e199]: $
+                - spinbutton "Presupuesto $" [ref=f11e200]: "500000"
+            - generic [ref=f11e202]: Pendiente
+      - generic [ref=f11e203]:
+        - article [ref=f11e204]:
+          - generic [ref=f11e205]: Total gastos mes
+          - heading "$221.500" [level=2] [ref=f11e206]
+        - article [ref=f11e207]:
+          - generic [ref=f11e208]: Boletas
+          - heading "6" [level=2] [ref=f11e209]
+        - article [ref=f11e210]:
+          - generic [ref=f11e211]: Ítems
+          - heading "6" [level=2] [ref=f11e212]
+      - generic [ref=f11e213]:
+        - article [ref=f11e214]:
+          - strong [ref=f11e216]: Gasto por categoría
+        - article [ref=f11e219]:
+          - strong [ref=f11e221]: Categorías
+          - table [ref=f11e222]:
+            - rowgroup [ref=f11e223]:
+              - row "Categoría Total" [ref=f11e224]:
+                - columnheader "Categoría" [ref=f11e225]
+                - columnheader "Total" [ref=f11e226]
+            - rowgroup [ref=f11e227]:
+              - row "Servicios $165.000" [ref=f11e228]:
+                - cell "Servicios" [ref=f11e229]:
+                  - link "Servicios" [ref=f11e231] [cursor=pointer]:
+                    - /url: /category/Servicios?month=2026-06
+                - cell "$165.000" [ref=f11e232]
+              - row "Transporte $40.000" [ref=f11e233]:
+                - cell "Transporte" [ref=f11e234]:
+                  - link "Transporte" [ref=f11e236] [cursor=pointer]:
+                    - /url: /category/Transporte?month=2026-06
+                - cell "$40.000" [ref=f11e237]
+              - row "Restaurant $8.500" [ref=f11e238]:
+                - cell "Restaurant" [ref=f11e239]:
+                  - link "Restaurant" [ref=f11e241] [cursor=pointer]:
+                    - /url: /category/Restaurant?month=2026-06
+                - cell "$8.500" [ref=f11e242]
+              - row "Entretenimiento $8.000" [ref=f11e243]:
+                - cell "Entretenimiento" [ref=f11e244]:
+                  - link "Entretenimiento" [ref=f11e246] [cursor=pointer]:
+                    - /url: /category/Entretenimiento?month=2026-06
+                - cell "$8.000" [ref=f11e247]
+      - generic [ref=f11e248]:
+        - article [ref=f11e249]:
+          - strong [ref=f11e251]: Top comercios
+          - table [ref=f11e252]:
+            - rowgroup [ref=f11e253]:
+              - row "Comercio Total" [ref=f11e254]:
+                - columnheader "Comercio" [ref=f11e255]
+                - columnheader "Total" [ref=f11e256]
+            - rowgroup [ref=f11e257]:
+              - row "Sin comercio $221.500" [ref=f11e258]:
+                - cell "Sin comercio" [ref=f11e259]
+                - cell "$221.500" [ref=f11e260]
+        - article [ref=f11e261]:
+          - strong [ref=f11e263]: Boletas recientes
+          - table [ref=f11e264]:
+            - rowgroup [ref=f11e265]:
+              - row "Fecha Comercio Ítems Total" [ref=f11e266]:
+                - columnheader "Fecha" [ref=f11e267]
+                - columnheader "Comercio" [ref=f11e268]
+                - columnheader "Ítems" [ref=f11e269]
+                - columnheader "Total" [ref=f11e270]
+            - rowgroup [ref=f11e271]:
+              - row "2026-06-30 Sin comercio 1 $8.000" [ref=f11e272]:
+                - cell "2026-06-30" [ref=f11e273]
+                - cell "Sin comercio" [ref=f11e274]:
+                  - link "Sin comercio" [ref=f11e275] [cursor=pointer]:
+                    - /url: /receipt/6
+                - cell "1" [ref=f11e276]
+                - cell "$8.000" [ref=f11e277]
+              - row "2026-06-30 Sin comercio 1 $55.000" [ref=f11e278]:
+                - cell "2026-06-30" [ref=f11e279]
+                - cell "Sin comercio" [ref=f11e280]:
+                  - link "Sin comercio" [ref=f11e281] [cursor=pointer]:
+                    - /url: /receipt/5
+                - cell "1" [ref=f11e282]
+                - cell "$55.000" [ref=f11e283]
+              - row "2026-06-30 Sin comercio 1 $55.000" [ref=f11e284]:
+                - cell "2026-06-30" [ref=f11e285]
+                - cell "Sin comercio" [ref=f11e286]:
+                  - link "Sin comercio" [ref=f11e287] [cursor=pointer]:
+                    - /url: /receipt/4
+                - cell "1" [ref=f11e288]
+                - cell "$55.000" [ref=f11e289]
+              - row "2026-06-30 Sin comercio 1 $55.000" [ref=f11e290]:
+                - cell "2026-06-30" [ref=f11e291]
+                - cell "Sin comercio" [ref=f11e292]:
+                  - link "Sin comercio" [ref=f11e293] [cursor=pointer]:
+                    - /url: /receipt/3
+                - cell "1" [ref=f11e294]
+                - cell "$55.000" [ref=f11e295]
+              - row "2026-06-29 Sin comercio 1 $8.500" [ref=f11e296]:
+                - cell "2026-06-29" [ref=f11e297]
+                - cell "Sin comercio" [ref=f11e298]:
+                  - link "Sin comercio" [ref=f11e299] [cursor=pointer]:
+                    - /url: /receipt/2
+                - cell "1" [ref=f11e300]
+                - cell "$8.500" [ref=f11e301]
+              - row "2026-06-29 Sin comercio 1 $40.000" [ref=f11e302]:
+                - cell "2026-06-29" [ref=f11e303]
+                - cell "Sin comercio" [ref=f11e304]:
+                  - link "Sin comercio" [ref=f11e305] [cursor=pointer]:
+                    - /url: /receipt/1
+                - cell "1" [ref=f11e306]
+                - cell "$40.000" [ref=f11e307]
+  - contentinfo [ref=f11e308]: fortunia dashboard · solo lectura · puerto 8001

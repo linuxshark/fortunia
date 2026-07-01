@@ -1,49 +1,272 @@
-:root { --pico-spacing: 1rem; }
+/* ═══════════════════════════════════════════════════════════════
+   FORTUNIA — "Raycast Familiar"
+   Paleta: #0f0f12 base · #e8e3d5 texto · #34d399 acento
+   Mono: JetBrains Mono (números)  Sans: Inter (labels/cuerpo)
+═══════════════════════════════════════════════════════════════ */
 
-.topbar { border-bottom: 1px solid var(--pico-muted-border-color); margin-bottom: 1.5rem; }
-.brand .muted { font-weight: 400; }
-.muted { color: var(--pico-muted-color); }
+/* ── Tokens ─────────────────────────────────────────────────── */
+:root {
+  --bg:         #1a1b27;
+  --bg-surface: #21222e;
+  --bg-raised:  #2a2b38;
+  --border:     rgba(255,255,255,.07);
+  --border-md:  rgba(255,255,255,.13);
+  --text:       #e8e3d5;
+  --muted:      #6e6a62;
+  --muted-hi:   #9a9490;
+  --accent:     #34d399;
+  --accent-bg:  rgba(52,211,153,.1);
+  --accent-dim: rgba(52,211,153,.18);
+  --danger:     #f87171;
+  --warn:       #fb923c;
+  --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans:  'Inter', system-ui, sans-serif;
+  --radius:     8px;
+  --pico-spacing: .9rem;
+}
 
+/* ── Pico dark overrides ─────────────────────────────────────── */
+[data-theme="dark"] {
+  --pico-background-color:                    var(--bg);
+  --pico-card-background-color:               var(--bg-surface);
+  --pico-card-sectioning-background-color:    var(--bg-raised);
+  --pico-card-border-color:                   var(--border);
+  --pico-color:                               var(--text);
+  --pico-muted-color:                         var(--muted-hi);
+  --pico-muted-border-color:                  var(--border);
+  --pico-primary:                             var(--accent);
+  --pico-primary-hover:                       #4ade80;
+  --pico-primary-focus:                       rgba(52,211,153,.28);
+  --pico-primary-inverse:                     #060809;
+  --pico-secondary-color:                     var(--muted-hi);
+  --pico-form-element-background-color:       var(--bg-raised);
+  --pico-form-element-border-color:           var(--border-md);
+  --pico-form-element-color:                  var(--text);
+  --pico-form-element-focus-color:            var(--accent);
+  --pico-form-element-placeholder-color:      var(--muted);
+  --pico-table-border-color:                  var(--border);
+  --pico-table-row-stripped-background-color: rgba(255,255,255,.025);
+  --pico-border-radius:                       var(--radius);
+  --pico-nav-link-color:                      var(--muted-hi);
+  --pico-nav-link-hover-color:                var(--text);
+  --pico-h1-color:                            var(--text);
+  --pico-h2-color:                            var(--text);
+  --pico-ins-color:                           var(--accent);
+  --pico-del-color:                           var(--danger);
+}
+
+/* ── Base typography ─────────────────────────────────────────── */
+body { font-family: var(--font-sans); background: var(--bg); color: var(--text); }
+
+/* ── Signature: section eyebrow labels ──────────────────────── */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 .5rem;
+  display: block;
+}
+
+/* ── Topbar ──────────────────────────────────────────────────── */
+.topbar {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+  background: var(--bg);
+}
+.brand strong    { color: var(--text); letter-spacing: -.02em; }
+.brand .muted    { font-weight: 400; color: var(--muted); font-size: .88rem; }
+.muted           { color: var(--muted-hi); }
+
+/* ── Page layout ─────────────────────────────────────────────── */
 .page-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;
+  gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
 }
 .page-head hgroup { margin: 0; }
+.page-head h1 { font-size: 1.35rem; font-weight: 600; margin: 0; color: var(--text); }
 .month-form, .filters { margin: 0; }
 
 .grid.cols-2 { grid-template-columns: 1fr 1fr; }
 @media (max-width: 900px) { .grid.cols-2 { grid-template-columns: 1fr; } }
 
-.kpis { grid-template-columns: repeat(3, 1fr); margin-bottom: 1.5rem; }
+/* ── KPI cards ───────────────────────────────────────────────── */
+.kpis { grid-template-columns: repeat(3, 1fr); margin-bottom: 1.5rem; gap: .5rem; }
 .kpi {
   margin: 0; padding: 1rem 1.25rem; text-align: center;
-  background: var(--pico-card-background-color);
-  border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius);
+  background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
 }
-.kpi h2 { margin: .25rem 0 0; font-size: 1.6rem; }
+.kpi small {
+  font-family: var(--font-mono);
+  font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); display: block; margin-bottom: .35rem;
+}
+.kpi h2 {
+  margin: 0; font-size: 1.5rem; font-weight: 700;
+  font-family: var(--font-mono); color: var(--text); letter-spacing: -.02em;
+}
 
+/* ── Charts ──────────────────────────────────────────────────── */
 .chart-wrap { position: relative; height: 280px; }
 
-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* ── Tables ──────────────────────────────────────────────────── */
+table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem; }
 .dot {
-  display: inline-block; width: .7em; height: .7em; border-radius: 50%;
-  margin-right: .45em; vertical-align: middle;
+  display: inline-block; width: .6em; height: .6em; border-radius: 50%;
+  margin-right: .4em; vertical-align: middle;
 }
 
+/* ── Meta dl ─────────────────────────────────────────────────── */
 .meta { display: grid; grid-template-columns: auto 1fr; gap: .35rem 1rem; margin: 0; }
-.meta dt { color: var(--pico-muted-color); }
-.meta dd { margin: 0; text-align: right; }
+.meta dt { color: var(--muted-hi); font-size: .85rem; }
+.meta dd { margin: 0; text-align: right; font-family: var(--font-mono); }
 
-.receipt-img { max-width: 100%; border-radius: var(--pico-border-radius); }
-
+/* ── Badges ──────────────────────────────────────────────────── */
 .badge {
-  padding: .2rem .6rem; border-radius: 1rem; font-size: .8rem; font-weight: 600;
-  text-transform: capitalize; color: #fff; background: #94a3b8;
+  padding: .15rem .5rem; border-radius: 4px; font-size: .7rem; font-weight: 600;
+  font-family: var(--font-mono); letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted-hi);
+  background: rgba(255,255,255,.07);
 }
-.badge-ok { background: #16a34a; }
-.badge-review { background: #ca8a04; }
-.badge-failed { background: #dc2626; }
-.badge-pending { background: #64748b; }
+.badge-ok      { background: var(--accent-dim); color: var(--accent); }
+.badge-review  { background: rgba(251,146,60,.18); color: var(--warn); }
+.badge-failed  { background: rgba(248,113,113,.18); color: var(--danger); }
+.badge-pending { background: rgba(255,255,255,.06); color: var(--muted-hi); }
 
+/* ── Income bar ──────────────────────────────────────────────── */
+.income-bar {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.income-bar-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem;
+}
+.income-bar-header strong {
+  font-family: var(--font-mono); font-size: .6rem;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.income-total {
+  font-size: 1.35rem; font-weight: 700;
+  color: var(--accent); font-family: var(--font-mono); letter-spacing: -.02em;
+}
+.income-chart-wrap { position: relative; height: 52px; margin: .5rem 0; }
+.income-table { margin-top: .5rem; }
+.income-table td { padding: .25rem .5rem; font-size: .83rem; }
+.income-table .num { font-family: var(--font-mono); }
+
+/* ── Balance card ────────────────────────────────────────────── */
+.balance-card {
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-surface); padding: 1rem 1.25rem;
+}
+.balance-card header { margin-bottom: .65rem; }
+.balance-card header strong {
+  font-family: var(--font-mono); font-size: .6rem;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.balance-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1rem; margin-bottom: .75rem; text-align: center;
+}
+.balance-item { display: flex; flex-direction: column; gap: .15rem; }
+.balance-item small {
+  font-family: var(--font-mono); font-size: .58rem;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+.income-side strong  { color: var(--accent); font-size: 1rem; font-family: var(--font-mono); font-weight: 700; }
+.expense-side strong { color: var(--danger); font-size: 1rem; font-family: var(--font-mono); font-weight: 700; }
+.balance-item strong { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; }
+.balance-bar-wrap { height: 7px; background: var(--accent); border-radius: 4px; overflow: hidden; }
+.balance-bar-fill {
+  height: 100%; background: var(--danger); border-radius: 4px;
+  transition: width .4s ease; min-width: 0;
+}
+
+/* ── Fondo Común ─────────────────────────────────────────────── */
+.fund { margin: 1rem 0 1.5rem; }
+.fund-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: .5rem; flex-wrap: wrap; margin-bottom: .4rem;
+}
+.fund-header strong { font-size: .95rem; color: var(--text); }
+.fund-figures {
+  font-family: var(--font-mono); font-size: .78rem; color: var(--muted-hi);
+  font-variant-numeric: tabular-nums;
+}
+.fund-bar-wrap {
+  height: 9px; background: var(--bg-raised); border-radius: 5px;
+  overflow: hidden; margin: .4rem 0 .25rem;
+  border: 1px solid var(--border);
+}
+.fund-bar-fill { height: 100%; transition: width .5s ease, background .5s ease; }
+.fund-overspent {
+  color: var(--danger); font-size: .78rem;
+  font-family: var(--font-mono); margin: 0 0 .75rem;
+}
+.fund-pct   { font-size: .72rem; color: var(--muted); font-family: var(--font-mono); }
+.fund-remaining { margin: 0 0 .85rem; font-size: .82rem; color: var(--muted-hi); }
+.fund-remaining strong { font-family: var(--font-mono); color: var(--text); }
+
+.fund-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: .45rem; }
+.fund-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .65rem .75rem; background: var(--bg-surface);
+  transition: border-color .2s, background .2s;
+}
+.fund-card.is-paid {
+  border-color: rgba(52,211,153,.3);
+  background: rgba(52,211,153,.04);
+}
+.fund-card-head { display: flex; align-items: center; gap: .35rem; margin-bottom: .45rem; }
+.fund-emoji { font-size: .95rem; }
+.fund-name  { font-weight: 600; font-size: .8rem; flex: 1; color: var(--text); }
+.fund-budget-label {
+  font-family: var(--font-mono); font-size: .58rem;
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); display: block; margin-bottom: .2rem;
+}
+.fund-input { display: flex; align-items: center; gap: .2rem; }
+.fund-input .peso { color: var(--muted); font-size: .78rem; }
+.fund-input input {
+  width: 100%; padding: .2rem .3rem;
+  font-family: var(--font-mono); font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text);
+  transition: border-color .15s;
+}
+.fund-input input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-bg); }
+.fund-card-footer { display: flex; align-items: center; justify-content: center; margin-top: .55rem; }
+.fund-paid { font-size: .68rem; font-family: var(--font-mono); color: var(--muted); }
+.fund-badge-paid {
+  background: var(--accent-dim); color: var(--accent);
+  font-size: .6rem; font-family: var(--font-mono); letter-spacing: .06em;
+  padding: .1rem .45rem; border-radius: 3px; text-transform: uppercase;
+}
+.fund-badge-pending {
+  background: rgba(251,146,60,.15); color: var(--warn);
+  font-size: .6rem; font-family: var(--font-mono); letter-spacing: .06em;
+  padding: .1rem .45rem; border-radius: 3px; text-transform: uppercase;
+}
+.fund-overspent-text { color: var(--danger); }
+
+/* ── Particles canvas ────────────────────────────────────────── */
+#bg-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: -1; pointer-events: none;
+  display: block;
+}
+
+/* ── Misc ────────────────────────────────────────────────────── */
+.receipt-img { max-width: 100%; border-radius: var(--radius); }
 .filters { grid-template-columns: 1fr 1fr auto; gap: .75rem; margin-bottom: 1rem; align-items: end; }
 @media (max-width: 600px) { .filters { grid-template-columns: 1fr; } }

@@ -1,0 +1,45 @@
+{# dashboard/templates/incomes.html #}
+{% extends "base.html" %}
+{% block title %}fortunia · ingresos{% endblock %}
+{% block content %}
+<header class="page-head">
+  <hgroup>
+    <h1>Ingresos</h1>
+    <p class="muted">Total del mes: {{ total | clp }}</p>
+  </hgroup>
+  <form class="month-form" hx-get="/incomes" hx-target="body" hx-push-url="true"
+        hx-trigger="change from:select">
+    <select name="month" aria-label="Mes">
+      {% for m in months %}
+        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
+      {% endfor %}
+      {% if month not in months %}<option value="{{ month }}" selected>{{ month }}</option>{% endif %}
+    </select>
+  </form>
+</header>
+
+<article>
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Fuente</th>
+        <th>Categoría</th>
+        <th class="num">Monto</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.issued_date }}</td>
+        <td>{{ r.source_text or '—' }}</td>
+        <td>{{ r.category }}</td>
+        <td class="num">{{ r.amount | clp }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Sin ingresos registrados este mes.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endblock %}
