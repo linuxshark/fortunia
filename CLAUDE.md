@@ -101,11 +101,24 @@ make items            # Line items from latest receipt
 make spend            # Monthly spend by category
 make uncategorized    # Items without category (for populating item_aliases)
 
-# Manual backup (immediate pg_dump)
-make backup           # Creates backups/manual-YYYYMMDD-HHMMSS.sql.gz
-
 make fund              # Aplica el DDL del Fondo Común a la DB en marcha (idempotente)
 ```
+
+### Backups & Restore (disco externo)
+
+Los backups (DB `pg_dump -Fc` + espejo de imágenes) se guardan en el disco externo
+en `BACKUP_DIR` (ver `.env`). Prerrequisito: Docker Desktop → Settings → Resources →
+File Sharing debe incluir `/Volumes/Workdir`.
+
+```bash
+make backup-init      # una vez: crea el centinela que prueba que el disco está montado
+make backup           # fuerza un backup ahora
+make backups          # lista backups disponibles
+make restore FILE=db-YYYYMMDD-HHMMSS.dump   # restaura (pide confirmación)
+```
+
+Backup automático: diario a `BACKUP_TIME`. Rotación GFS (7 diarios/4 semanales/12
+mensuales). Restore también disponible desde la web en `/admin`.
 
 ### Dashboard Setup
 

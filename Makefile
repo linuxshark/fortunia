@@ -208,14 +208,35 @@ uncategorized:
 	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} -c \
 		"SELECT * FROM v_uncategorized_items LIMIT 30;"
 
-## backup: fuerza un pg_dump ahora (sin esperar el cron nocturno)
+## backup-init: crea el centinela en el disco externo (prueba que está montado)
+.PHONY: backup-init
+backup-init:
+	@set -a; . ./.env; set +a; \
+	if [ ! -d "$$BACKUP_DIR" ]; then \
+		echo "✗ $$BACKUP_DIR no existe. ¿Está montado el disco externo?"; exit 1; \
+	fi; \
+	touch "$$BACKUP_DIR/.fortunia-backup-volume"; \
+	echo "✓ Centinela creado en $$BACKUP_DIR"
+
+## backup: fuerza un backup ahora (vía API del servicio backup)
 .PHONY: backup
 backup:
-	@mkdir -p backups
-	$(COMPOSE) exec -e PGPASSWORD=$${POSTGRES_PASSWORD} postgres \
-		pg_dump -U $${POSTGRES_USER:-boleta} $${POSTGRES_DB:-boletas} \
-		| gzip > backups/manual-$$(date +%Y%m%d-%H%M%S).sql.gz
-	@echo "Backup guardado en backups/"
+	$(COMPOSE) exec -T backup curl -sf -X POST http://localhost:8000/backups/run \
+		| python3 -m json.tool
+
+## backups: lista los backups disponibles
+.PHONY: backups
+backups:
+	$(COMPOSE) exec -T backup curl -sf http://localhost:8000/backups \
+		| python3 -m json.tool
+
+## restore: restaura un backup  →  make restore FILE=db-YYYYMMDD-HHMMSS.dump
+.PHONY: restore
+restore:
+	@[ -n "$(FILE)" ] || (echo "Uso: make restore FILE=db-YYYYMMDD-HHMMSS.dump" && exit 1)
+	@read -p "⚠️  Restaurar '$(FILE)' SOBRESCRIBE la DB actual. Escribe 'RESTAURAR': " ans && [ "$$ans" = "RESTAURAR" ]
+	$(COMPOSE) exec -T backup curl -sf -X POST http://localhost:8000/restore \
+		-d "name=$(FILE)" | python3 -m json.tool
 
 ## fund: aplica el DDL del fondo (06_fund.sql, 07_fund_payments.sql) a la DB en marcha (idempotente)
 .PHONY: fund

@@ -75,23 +75,18 @@ services:
       postgres:
         condition: service_healthy
 
-  db-backup:
-    image: postgres:16
+  backup:
+    build: ./backup
     restart: unless-stopped
+    env_file: .env
     environment:
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB}
-      PGHOST: postgres
+      POSTGRES_HOST: postgres        # red de compose
+      BACKUP_DIR: /backups           # ruta interna; el host la monta al disco externo
+      IMAGE_STORE: /app/data/images
     volumes:
-      - ./backups:/backups
-    # nightly pg_dump; prune dumps older than 30 days
-    entrypoint: >
-      bash -c "while true; do
-        sleep 86400;
-        pg_dump | gzip > /backups/$$(date +%%Y%%m%%d-%%H%%M%%S).sql.gz;
-        find /backups -name '*.sql.gz' -mtime +30 -delete;
-      done"
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./data/images:/app/data/images        # rw: respaldar y restaurar imágenes
+    # SIN 'ports': servicio privilegiado, solo alcanzable por la red de compose
     depends_on:
       postgres:
         condition: service_healthy
