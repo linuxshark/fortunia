@@ -42,7 +42,6 @@
         </label>
       </form>
       <div class="fund-card-footer">
-        <div class="fund-paid muted">Pagado: {{ r.paid_amount | clp }}</div>
         {% if r.paid %}<span class="badge fund-badge-paid">Pagado</span>
         {% else %}<span class="badge fund-badge-pending">Pendiente</span>{% endif %}
       </div>

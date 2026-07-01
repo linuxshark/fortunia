@@ -244,7 +244,7 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   transition: border-color .15s;
 }
 .fund-input input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-bg); }
-.fund-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: .4rem; }
+.fund-card-footer { display: flex; align-items: center; justify-content: center; margin-top: .55rem; }
 .fund-paid { font-size: .68rem; font-family: var(--font-mono); color: var(--muted); }
 .fund-badge-paid {
   background: var(--accent-dim); color: var(--accent);
