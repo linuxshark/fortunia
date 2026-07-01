@@ -92,4 +92,12 @@ def parse_expense(text: str) -> dict:
     after = _clean_category(t[m.end():])
     category = after or _clean_category(_strip_verbs(t[: m.start()])) or "otros"
 
-    return {"amount": amount, "category_text": category, "kind": "expense", "raw": raw}
+    # "restaurante, KFC" -> categoría "restaurante" (matchea item_aliases) +
+    # detalle libre "KFC" (para mostrar en Gastos, ej. qué local fue).
+    detail = None
+    if "," in category:
+        cat_part, _, detail_part = category.partition(",")
+        category = cat_part.strip() or "otros"
+        detail = detail_part.strip() or None
+
+    return {"amount": amount, "category_text": category, "detail": detail, "kind": "expense", "raw": raw}

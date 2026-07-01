@@ -49,6 +49,9 @@ def months_available() -> list[str]:
             UNION
             SELECT to_char(date_trunc('month', issued_date), 'YYYY-MM') AS m
             FROM incomes WHERE deleted_at IS NULL
+            UNION
+            SELECT to_char(month, 'YYYY-MM') AS m
+            FROM fund_monthly WHERE paid_amount > 0
         ) sub
         ORDER BY m DESC
     """
@@ -217,18 +220,22 @@ def _month_date(month: str) -> str:
 
 def fund_status(month: str) -> list[dict]:
     """Estado del fondo por categoría compartida. LEFT JOIN: muestra todas las
-    categorías shared aunque no tengan fila ese mes (presupuesto = target_amount)."""
+    categorías shared aunque no tengan fila ese mes (presupuesto = target_amount).
+    'paid_amount' viene del ledger fund_payments vía v_fund_paid (respeta
+    accumulation_mode: suma para Alimentos/Restaurantes, último pago para el resto)."""
     sql = """
         SELECT c.id AS category_id,
                c.name AS category,
                COALESCE(fm.budget_amount, c.target_amount, 0)::float8 AS budget_amount,
-               COALESCE(fm.paid_amount, 0)::float8                    AS paid_amount,
+               COALESCE(vp.paid_amount, 0)::float8                    AS paid_amount,
                (COALESCE(fm.budget_amount, c.target_amount, 0)
-                 - COALESCE(fm.paid_amount, 0))::float8               AS remaining,
-               (COALESCE(fm.paid_amount, 0) > 0)                      AS paid
+                 - COALESCE(vp.paid_amount, 0))::float8                AS remaining,
+               (COALESCE(vp.paid_amount, 0) > 0)                      AS paid
         FROM categories c
         LEFT JOIN fund_monthly fm
           ON fm.category_id = c.id AND fm.month = %(m)s::date
+        LEFT JOIN v_fund_paid vp
+          ON vp.category_id = c.id AND vp.month = %(m)s::date
         WHERE c.classification = 'shared'
         ORDER BY c.id
     """
@@ -289,6 +296,50 @@ def line_items_filter(month: str, category: str | None = None,
         LEFT JOIN roots ro ON ro.id = li.category_id
         WHERE {' AND '.join(where)}
         ORDER BY COALESCE(r.issued_date, r.created_at::date) DESC, r.id DESC, li.line_no
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
+
+
+def fund_payments_for_month(month: str, category: str | None = None) -> list[dict]:
+    """Pagos individuales del Fondo Común este mes (ledger fund_payments), con la
+    misma forma de fila que line_items_filter() para listarlos junto a los gastos
+    OCR en /expenses. Solo para el listado visual — no toca receipts/line_items
+    ni los KPIs.
+
+    Para categorías 'sum' (Alimentos, Restaurantes) se listan TODAS las
+    transacciones (cada comida/compra cuenta). Para categorías 'replace'
+    (boletas fijas) solo se lista el pago más reciente — los anteriores son
+    correcciones de monto, no gastos adicionales, y no deben duplicar el total."""
+    where = ["month = %(m)s::date", "(accumulation_mode = 'sum' OR rn = 1)"]
+    params: dict = {"m": _month_date(month)}
+    if category:
+        where.append("cat_name = %(cat)s")
+        params["cat"] = category
+    sql = f"""
+        WITH ranked AS (
+            SELECT fp.*, c.name AS cat_name, c.accumulation_mode,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY fp.category_id, fp.month
+                     ORDER BY fp.paid_at DESC, fp.id DESC
+                   ) AS rn
+            FROM fund_payments fp
+            JOIN categories c ON c.id = fp.category_id
+            WHERE fp.month = %(m)s::date
+        )
+        SELECT NULL::bigint                          AS receipt_id,
+               paid_at::date                          AS issued_date,
+               'Fondo Común'                          AS merchant,
+               cat_name                                AS category,
+               COALESCE(detail, cat_name)              AS normalized_name,
+               detail                                   AS raw_text,
+               1                                        AS qty,
+               amount                                   AS unit_price,
+               amount                                   AS line_total
+        FROM ranked
+        WHERE {' AND '.join(where)}
+        ORDER BY issued_date DESC
     """
     with connect() as conn, conn.cursor() as cur:
         cur.execute(sql, params)

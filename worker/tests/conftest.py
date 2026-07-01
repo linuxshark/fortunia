@@ -27,7 +27,8 @@ def db():
 
 @pytest.fixture
 def clean_fund(db):
-    """Borra filas de fund_monthly creadas por los tests (mes 2099-01)."""
+    """Borra filas de fund_monthly/fund_payments creadas por los tests (mes 2099-01)."""
     yield
     with db.cursor() as cur:
+        cur.execute("DELETE FROM fund_payments WHERE month = DATE '2099-01-01'")
         cur.execute("DELETE FROM fund_monthly WHERE month = DATE '2099-01-01'")

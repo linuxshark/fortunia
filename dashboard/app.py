@@ -172,13 +172,20 @@ def expenses(request: Request, month: str | None = None,
     months = q.months_available()
     month = resolve_month(month, months)
     rows = q.line_items_filter(month, category, merchant)
+    # Pagos del Fondo Común: se unen solo para el listado (no afectan KPIs de OCR).
+    # El filtro de comercio no aplica — esos pagos no tienen un comercio real asociado.
+    if not merchant:
+        rows = rows + q.fund_payments_for_month(month, category)
+        rows.sort(key=lambda r: (r["issued_date"], r["receipt_id"] or 0), reverse=True)
     cats = q.category_breakdown(month)
+    fund_cats = q.fund_payments_for_month(month)
     total = sum(float(r["line_total"] or 0) for r in rows)
+    all_categories = sorted({c["category"] for c in cats} | {r["category"] for r in fund_cats})
     return templates.TemplateResponse(request, "expenses.html", {
         "request": request, "month": month, "months": months,
         "category": category, "merchant": merchant,
         "rows": rows, "total": total,
-        "all_categories": [c["category"] for c in cats],
+        "all_categories": all_categories,
     })
 
 

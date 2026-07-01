@@ -101,31 +101,48 @@ def persist(result: dict) -> tuple[int | None, bool]:
 
 
 def upsert_fund_payment(
-    category_id: int, month, amount: int, source: str
+    category_id: int, month, amount: int, source: str, detail: str | None = None
 ) -> tuple:
-    """Registra el pago de una categoría compartida para un mes (idempotente).
+    """Registra un pago de categoría compartida en el ledger (fund_payments).
 
-    UPSERT por (category_id, month): reemplaza paid_amount (no suma). Si la fila
-    no existía, inicializa budget_amount desde categories.target_amount (o 0).
-    Devuelve (paid_amount, remaining) con remaining = budget_amount - paid_amount.
+    Siempre inserta una fila nueva en el ledger (con su detalle, ej. "KFC") para
+    no perder el historial de transacciones. Cuánto cuenta como "pagado" para el
+    mes depende de categories.accumulation_mode (ver v_fund_paid):
+      'replace' (boletas fijas: Arriendo, Agua, Luz) -> el pago más reciente
+      'sum'     (gasto variable: Alimentos, Restaurantes) -> se suman todos
+
+    Devuelve (paid_amount, remaining) ya resueltos según ese modo.
     """
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO fund_monthly (category_id, month, budget_amount, paid_amount, paid_at, source)
+            INSERT INTO fund_monthly (category_id, month, budget_amount, paid_amount, source)
             VALUES (
                 %(cat)s, %(month)s,
                 COALESCE((SELECT target_amount FROM categories WHERE id = %(cat)s), 0),
-                %(amount)s, now(), %(source)s
+                0, %(source)s
             )
-            ON CONFLICT (category_id, month) DO UPDATE
-              SET paid_amount = EXCLUDED.paid_amount,
-                  paid_at     = now(),
-                  source      = EXCLUDED.source,
-                  updated_at  = now()
-            RETURNING paid_amount, (budget_amount - paid_amount) AS remaining
+            ON CONFLICT (category_id, month) DO NOTHING
             """,
-            {"cat": category_id, "month": month, "amount": amount, "source": source},
+            {"cat": category_id, "month": month, "source": source},
+        )
+        cur.execute(
+            """
+            INSERT INTO fund_payments (category_id, month, amount, detail, source)
+            VALUES (%(cat)s, %(month)s, %(amount)s, %(detail)s, %(source)s)
+            """,
+            {"cat": category_id, "month": month, "amount": amount, "detail": detail, "source": source},
+        )
+        cur.execute(
+            """
+            SELECT fm.budget_amount,
+                   COALESCE(vp.paid_amount, 0)                                AS paid_amount,
+                   (fm.budget_amount - COALESCE(vp.paid_amount, 0))           AS remaining
+            FROM fund_monthly fm
+            LEFT JOIN v_fund_paid vp ON vp.category_id = fm.category_id AND vp.month = fm.month
+            WHERE fm.category_id = %(cat)s AND fm.month = %(month)s
+            """,
+            {"cat": category_id, "month": month},
         )
         row = cur.fetchone()
         conn.commit()

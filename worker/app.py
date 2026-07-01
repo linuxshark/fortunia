@@ -70,7 +70,8 @@ def _register_expense(text: str) -> dict:
     shared_id, shared_norm, shared_src = categorize_shared(parsed["category_text"])
     if shared_id is not None:
         month = date.today().replace(day=1)
-        paid, remaining = db.upsert_fund_payment(shared_id, month, amount, "telegram")
+        detail = parsed.get("detail")
+        paid, remaining = db.upsert_fund_payment(shared_id, month, amount, "telegram", detail)
         return {
             "status": "stored",
             "routed_to": "fund",
@@ -78,6 +79,7 @@ def _register_expense(text: str) -> dict:
             "category_id": shared_id,
             "category": shared_norm or parsed["category_text"],
             "category_source": shared_src,
+            "detail": detail,
             "month": str(month),
             "paid_amount": float(paid),
             "remaining": float(remaining),

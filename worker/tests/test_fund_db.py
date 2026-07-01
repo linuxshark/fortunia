@@ -36,6 +36,7 @@ def test_upsert_fund_payment_inicial(db, clean_fund):
 
 
 def test_upsert_fund_payment_idempotente_reemplaza(db, clean_fund):
+    """Electricidad es 'replace' (boleta fija): el pago más reciente reemplaza."""
     cat_id, _, _ = categorize_shared("electricidad")
     upsert_fund_payment(cat_id, MONTH, 55000, "telegram")
     paid, _ = upsert_fund_payment(cat_id, MONTH, 60000, "telegram")
@@ -46,3 +47,18 @@ def test_upsert_fund_payment_idempotente_reemplaza(db, clean_fund):
             (cat_id, MONTH),
         )
         assert cur.fetchone()[0] == 1
+
+
+def test_upsert_fund_payment_restaurantes_suma_y_guarda_detalle(db, clean_fund):
+    """Restaurantes es 'sum' (gasto variable): cada comida se acumula, con detalle."""
+    cat_id, _, _ = categorize_shared("restaurante")
+    upsert_fund_payment(cat_id, MONTH, 15000, "telegram", "KFC")
+    paid, _ = upsert_fund_payment(cat_id, MONTH, 20000, "telegram", "Mcdonalds")
+    assert int(paid) == 35000
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT detail, amount FROM fund_payments WHERE category_id=%s AND month=%s ORDER BY id",
+            (cat_id, MONTH),
+        )
+        rows = cur.fetchall()
+        assert [r[0] for r in rows] == ["KFC", "Mcdonalds"]

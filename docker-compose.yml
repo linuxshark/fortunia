@@ -39,6 +39,7 @@ services:
       - ./db/04_text_seed.sql:/docker-entrypoint-initdb.d/04_text_seed.sql:ro
       - ./db/05_incomes.sql:/docker-entrypoint-initdb.d/05_incomes.sql:ro
       - ./db/06_fund.sql:/docker-entrypoint-initdb.d/06_fund.sql:ro
+      - ./db/07_fund_payments.sql:/docker-entrypoint-initdb.d/07_fund_payments.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
