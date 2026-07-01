@@ -160,15 +160,41 @@ def receipt_detail(receipt_id: int) -> tuple[dict | None, list[dict]]:
 
 
 def income_kpis(month: str) -> dict:
-    return {"total": 0, "count": 0}
+    sql = """
+        SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
+        FROM incomes
+        WHERE deleted_at IS NULL AND to_char(issued_date, 'YYYY-MM') = %(m)s
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": month})
+        return cur.fetchone() or {"total": 0, "count": 0}
 
 
 def income_by_category(month: str) -> list[dict]:
-    return []
+    sql = """
+        SELECT category, total
+        FROM v_monthly_income_by_category
+        WHERE to_char(month, 'YYYY-MM') = %(m)s
+        ORDER BY total DESC
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": month})
+        return cur.fetchall()
 
 
 def recent_incomes(month: str, limit: int = 25) -> list[dict]:
-    return []
+    sql = """
+        SELECT i.id, i.issued_date, i.amount, i.source_text,
+               COALESCE(c.name, 'Sin categoría') AS category
+        FROM incomes i
+        LEFT JOIN categories c ON c.id = i.category_id
+        WHERE i.deleted_at IS NULL AND to_char(i.issued_date, 'YYYY-MM') = %(m)s
+        ORDER BY i.issued_date DESC, i.id DESC
+        LIMIT %(lim)s
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": month, "lim": limit})
+        return cur.fetchall()
 
 
 def _month_date(month: str) -> str:
