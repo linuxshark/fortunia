@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     dashboard_host: str = "0.0.0.0"
     dashboard_port: int = 8000           # puerto interno; host lo publica en 8001
     image_store: str = "./data/images"   # absoluto dentro del container (/app/data/images)
+    backup_url: str = "http://backup:8000"   # API interna del servicio backup
 
     @property
     def dsn(self) -> str:

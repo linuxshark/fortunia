@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -187,6 +188,67 @@ def expenses(request: Request, month: str | None = None,
         "rows": rows, "total": total,
         "all_categories": all_categories,
     })
+
+
+def _backup_get(path: str):
+    with httpx.Client(timeout=10) as c:
+        r = c.get(f"{settings.backup_url}{path}")
+        r.raise_for_status()
+        return r.json()
+
+
+def _backup_post(path: str, data: dict | None = None):
+    with httpx.Client(timeout=300) as c:      # restore puede tardar
+        r = c.post(f"{settings.backup_url}{path}", data=data or {})
+        r.raise_for_status()
+        return r.json()
+
+
+def _backup_health() -> dict:
+    try:
+        return _backup_get("/health")
+    except Exception:
+        return {"disk_ok": False, "unreachable": True}
+
+
+def _admin_ctx(request: Request, message: str | None = None) -> dict:
+    try:
+        rows = _backup_get("/backups")
+    except Exception:
+        rows = []
+    return {
+        "request": request,
+        "backups": rows,
+        "health": _backup_health(),
+        "message": message,
+    }
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin(request: Request):
+    return templates.TemplateResponse(request, "admin.html", _admin_ctx(request))
+
+
+@app.post("/admin/backup", response_class=HTMLResponse)
+def admin_backup(request: Request):
+    try:
+        out = _backup_post("/backups/run")
+        msg = f"Backup creado: {out['file']}"
+    except Exception as exc:
+        msg = f"Error en backup: {exc}"
+    return templates.TemplateResponse(request, "admin.html", _admin_ctx(request, msg))
+
+
+@app.post("/admin/restore", response_class=HTMLResponse)
+def admin_restore(request: Request, name: str = Form(...), confirm: str = Form(...)):
+    if confirm != "RESTAURAR":
+        return JSONResponse({"error": "confirmación inválida"}, status_code=400)
+    try:
+        _backup_post("/restore", data={"name": name})
+        msg = f"Restaurado: {name}"
+    except Exception as exc:
+        msg = f"Error al restaurar: {exc}"
+    return templates.TemplateResponse(request, "admin.html", _admin_ctx(request, msg))
 
 
 @app.get("/image/{sha}")

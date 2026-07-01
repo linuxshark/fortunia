@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}fortunia · admin{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Backups & Restauración</h2>
+  <p class="muted">
+    {% if health.disk_ok %}
+      <span style="color:#16a34a">● Disco de backups montado</span>
+    {% else %}
+      <span style="color:#ef4444">● Disco no disponible{% if health.unreachable %} (servicio backup inalcanzable){% endif %}</span>
+    {% endif %}
+  </p>
+</hgroup>
+
+{% if message %}<article><small>{{ message }}</small></article>{% endif %}
+
+<form method="post" action="/admin/backup">
+  <button type="submit" {% if not health.disk_ok %}disabled{% endif %}>Backup ahora</button>
+</form>
+
+<table>
+  <thead><tr><th>Backup</th><th>Fecha</th><th>Tier</th><th>Tamaño</th><th></th></tr></thead>
+  <tbody>
+    {% for b in backups %}
+    <tr>
+      <td><code>{{ b.name }}</code></td>
+      <td>{{ b.ts }}</td>
+      <td>{{ b.tier }}</td>
+      <td>{{ (b.size / 1024) | round(1) }} KB</td>
+      <td>
+        <form method="post" action="/admin/restore" class="restore-form">
+          <input type="hidden" name="name" value="{{ b.name }}">
+          <input type="text" name="confirm" placeholder="escribe RESTAURAR" required
+                 autocomplete="off" style="width:12rem;display:inline-block">
+          <button type="submit" class="secondary"
+                  onclick="return this.form.confirm.value==='RESTAURAR'">Restaurar</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">No hay backups todavía.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

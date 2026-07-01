@@ -35,7 +35,7 @@ def run_backup(settings: Settings) -> dict:
     mirror = settings.backup_path / _MIRROR
     mirror.mkdir(parents=True, exist_ok=True)
     if settings.image_dir.exists():
-        _run(["rsync", "-a", f"{settings.image_dir}/", f"{mirror}/"], {})
+        _run(["rsync", "-a", "--exclude=._*", f"{settings.image_dir}/", f"{mirror}/"], {})
 
     # 3) Poda GFS
     names = [p.name for p in settings.backup_path.glob("db-*.dump")]
@@ -98,6 +98,6 @@ def restore(settings: Settings, name: str) -> dict:
     mirror = settings.backup_path / _MIRROR
     if mirror.exists():
         settings.image_dir.mkdir(parents=True, exist_ok=True)
-        _run(["rsync", "-a", f"{mirror}/", f"{settings.image_dir}/"], {})
+        _run(["rsync", "-a", "--exclude=._*", f"{mirror}/", f"{settings.image_dir}/"], {})
 
     return {"restored": name}
