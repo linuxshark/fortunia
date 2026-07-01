@@ -6,6 +6,8 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+import psycopg
+
 from config import Settings
 from storage import require_disk
 from rotation import parse_ts, plan_prune, tier_for
@@ -59,3 +61,43 @@ def list_backups(settings: Settings) -> list[dict]:
         })
     rows.sort(key=lambda r: r["ts"], reverse=True)
     return rows
+
+
+def validate_name(settings: Settings, name: str) -> Path:
+    if parse_ts(name) is None:                      # solo db-YYYYMMDD-HHMMSS.dump
+        raise ValueError(f"Nombre de backup inválido: {name!r}")
+    path = (settings.backup_path / name).resolve()
+    if path.parent != settings.backup_path.resolve():   # anti path-traversal
+        raise ValueError(f"Ruta fuera del dir de backups: {name!r}")
+    if not path.exists():
+        raise ValueError(f"El backup no existe: {name!r}")
+    return path
+
+
+def _terminate_connections(settings: Settings) -> None:
+    with psycopg.connect(settings.dsn_maintenance, autocommit=True) as conn:
+        conn.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = %s AND pid <> pg_backend_pid()",
+            (settings.postgres_db,),
+        )
+
+
+def restore(settings: Settings, name: str) -> dict:
+    require_disk(settings.backup_path, settings.sentinel_name)
+    dump = validate_name(settings, name)
+
+    # 1) soltar conexiones ajenas para evitar contención de locks en el DROP
+    _terminate_connections(settings)
+
+    # 2) restaurar objetos (drop + recreate)
+    _run(["pg_restore", "--clean", "--if-exists", "--no-owner",
+          "-d", settings.postgres_db, str(dump)], settings.pg_env())
+
+    # 3) rellenar imágenes desde el espejo (sin --delete: no toca locales extra)
+    mirror = settings.backup_path / _MIRROR
+    if mirror.exists():
+        settings.image_dir.mkdir(parents=True, exist_ok=True)
+        _run(["rsync", "-a", f"{mirror}/", f"{settings.image_dir}/"], {})
+
+    return {"restored": name}
