@@ -14,12 +14,14 @@ DASHBOARD_URL := http://localhost:8001
 deploy: .env
 	$(COMPOSE) up -d --build
 	@$(MAKE) --no-print-directory wait-ready
+	@$(MAKE) --no-print-directory fund
 
 ## up: start services without rebuilding
 .PHONY: up
 up: .env
 	$(COMPOSE) up -d
 	@$(MAKE) --no-print-directory wait-ready
+	@$(MAKE) --no-print-directory fund
 
 ## build: rebuild worker image only
 .PHONY: build
@@ -58,12 +60,25 @@ stop:
 down:
 	$(COMPOSE) down
 
-## destroy: remove containers AND volumes (wipes DB data)
+## destroy: remove containers, volumes, images, networks (FULL WIPE)
 .PHONY: destroy
 destroy:
-	@echo "AVISO: esto borra todos los datos de Postgres."
-	@read -p "¿Continuar? [s/N] " ans && [ "$$ans" = "s" ]
-	$(COMPOSE) down -v
+	@echo "⚠️  DESTRUCCIÓN COMPLETA:"
+	@echo "  • Containers"
+	@echo "  • Volúmenes (BD, datos de Postgres)"
+	@echo "  • Imágenes Docker (fortunia-worker, fortunia-dashboard)"
+	@echo "  • Redes Docker"
+	@echo ""
+	@read -p "¿Continuar? Escribe 'si' para confirmar: " ans && [ "$$ans" = "si" ]
+	@$(COMPOSE) down -v --rmi all
+	@echo ""
+	@echo "✓ Containers, volúmenes, imágenes y redes eliminados"
+	@echo ""
+	@read -p "¿Borrar también datos locales (fotos + backups)? [s/N]: " ans && if [ "$$ans" = "s" ]; then \
+		rm -rf ./data/images/* ./backups/*; \
+		echo "✓ Datos locales eliminados (./data/images y ./backups)"; \
+	fi
+	@echo ""
 	@echo "Listo. Ejecuta 'make deploy' para empezar desde cero."
 
 ## restart: restart worker only (without rebuild)
