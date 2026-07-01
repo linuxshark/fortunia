@@ -1,13 +1,22 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}fortunia · gastos{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/pico.min.css">
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/vendor/htmx.min.js"></script>
   <script src="/static/vendor/chart.umd.min.js"></script>
+  <script>
+    if (window.Chart) {
+      Chart.defaults.color = '#7a756d';
+      Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+    }
+  </script>
 </head>
 <body>
   <nav class="container-fluid topbar">

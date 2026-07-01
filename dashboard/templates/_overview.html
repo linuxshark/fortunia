@@ -63,8 +63,8 @@
             type: 'doughnut',
             data: { labels: d.labels, datasets: [{ data: d.data, backgroundColor: d.colors, borderWidth: 1 }] },
             options: {
-              plugins: { legend: { position: 'right' } },
-              responsive: true, maintainAspectRatio: false, cutout: '58%'
+              plugins: { legend: { position: 'right', labels: { color: '#9a9490', font: { size: 11 } } } },
+              responsive: true, maintainAspectRatio: false, cutout: '60%'
             }
           });
         })();
