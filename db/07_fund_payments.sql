@@ -19,7 +19,7 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS accumulation_mode TEXT NOT NULL 
   CHECK (accumulation_mode IN ('replace', 'sum'));
 
 UPDATE categories SET accumulation_mode = 'sum'
-WHERE classification = 'shared' AND name IN ('Alimentos', 'Restaurantes');
+WHERE classification = 'shared' AND name IN ('Alimentos', 'Restaurantes', 'Gasolina');
 
 -- 2) Ledger de pagos individuales (fuente de verdad para "pagado").
 CREATE TABLE IF NOT EXISTS fund_payments (
@@ -44,6 +44,7 @@ SELECT fp.category_id, fp.month,
        MAX(fp.paid_at)        AS paid_at
 FROM fund_payments fp
 JOIN categories c ON c.id = fp.category_id
+WHERE fp.deleted_at IS NULL
 GROUP BY fp.category_id, fp.month, c.accumulation_mode;
 
 -- 4) Vista analítica del fondo (presupuesto + pagado real vía ledger).

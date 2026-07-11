@@ -238,11 +238,13 @@ restore:
 	$(COMPOSE) exec -T backup curl -sf -X POST http://localhost:8000/restore \
 		-d "name=$(FILE)" | python3 -m json.tool
 
-## fund: aplica el DDL del fondo (06_fund.sql, 07_fund_payments.sql) a la DB en marcha (idempotente)
+## fund: aplica el DDL del fondo (06_fund.sql..09_admin_soft_delete.sql) a la DB en marcha (idempotente)
 .PHONY: fund
 fund:
 	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/06_fund.sql
 	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/07_fund_payments.sql
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/08_ocr_fund.sql
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} < db/09_admin_soft_delete.sql
 	@$(MAKE) --no-print-directory ro-role
 	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-boleta} -d $${POSTGRES_DB:-boletas} \
 		-c "GRANT SELECT, INSERT, UPDATE ON fund_monthly TO $${POSTGRES_RO_USER:-fortunia_ro};"
