@@ -1,0 +1,224 @@
+{
+  "info": {
+    "name": "Fortunia — Admin CRUD",
+    "description": "CRUD administrativo sobre transacciones de Fortunia (receipts, line items, incomes, fund payments). Apunta al worker (:8002). Sin autenticación — solo para uso local del administrador.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8002" },
+    { "key": "month", "value": "2026-07" },
+    { "key": "id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Listar categorías",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/admin/categories", "host": ["{{base_url}}"], "path": ["admin", "categories"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Receipts",
+      "item": [
+        {
+          "name": "Listar boletas (filtrado por mes)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/admin/receipts?month={{month}}",
+              "host": ["{{base_url}}"], "path": ["admin", "receipts"],
+              "query": [{ "key": "month", "value": "{{month}}" }]
+            }
+          }
+        },
+        {
+          "name": "Listar boletas (todas)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/admin/receipts", "host": ["{{base_url}}"], "path": ["admin", "receipts"] }
+          }
+        },
+        {
+          "name": "Ver ítems de una boleta",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/admin/receipts/{{id}}/items",
+              "host": ["{{base_url}}"], "path": ["admin", "receipts", "{{id}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Editar boleta (monto/fecha)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"total\": 12345,\n  \"issued_date\": \"2026-07-11\"\n}" },
+            "url": {
+              "raw": "{{base_url}}/admin/receipts/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "receipts", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar boleta (soft-delete)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/admin/receipts/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "receipts", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Restaurar boleta",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/admin/receipts/{{id}}/restore",
+              "host": ["{{base_url}}"], "path": ["admin", "receipts", "{{id}}", "restore"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Line Items",
+      "item": [
+        {
+          "name": "Editar ítem (monto/categoría)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"line_total\": 5000,\n  \"category_id\": 1\n}" },
+            "url": {
+              "raw": "{{base_url}}/admin/line-items/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "line-items", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar ítem (soft-delete)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/admin/line-items/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "line-items", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Restaurar ítem",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/admin/line-items/{{id}}/restore",
+              "host": ["{{base_url}}"], "path": ["admin", "line-items", "{{id}}", "restore"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Incomes",
+      "item": [
+        {
+          "name": "Listar ingresos (filtrado por mes)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/admin/incomes?month={{month}}",
+              "host": ["{{base_url}}"], "path": ["admin", "incomes"],
+              "query": [{ "key": "month", "value": "{{month}}" }]
+            }
+          }
+        },
+        {
+          "name": "Editar ingreso",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 4402520,\n  \"category_id\": 1,\n  \"issued_date\": \"2026-07-11\",\n  \"raw_text\": \"cobre 4.402.520 de salario\"\n}" },
+            "url": {
+              "raw": "{{base_url}}/admin/incomes/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "incomes", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar ingreso (soft-delete)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/admin/incomes/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "incomes", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Restaurar ingreso",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/admin/incomes/{{id}}/restore",
+              "host": ["{{base_url}}"], "path": ["admin", "incomes", "{{id}}", "restore"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fund Payments",
+      "item": [
+        {
+          "name": "Listar pagos del fondo (filtrado por mes)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/admin/fund-payments?month={{month}}",
+              "host": ["{{base_url}}"], "path": ["admin", "fund-payments"],
+              "query": [{ "key": "month", "value": "{{month}}" }]
+            }
+          }
+        },
+        {
+          "name": "Editar pago del fondo",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 804625,\n  \"category_id\": 1,\n  \"month\": \"2026-07-01\",\n  \"detail\": \"crédito hipotecario\"\n}" },
+            "url": {
+              "raw": "{{base_url}}/admin/fund-payments/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "fund-payments", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar pago del fondo (soft-delete)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/admin/fund-payments/{{id}}",
+              "host": ["{{base_url}}"], "path": ["admin", "fund-payments", "{{id}}"]
+            }
+          }
+        },
+        {
+          "name": "Restaurar pago del fondo",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/admin/fund-payments/{{id}}/restore",
+              "host": ["{{base_url}}"], "path": ["admin", "fund-payments", "{{id}}", "restore"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
