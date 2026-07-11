@@ -38,7 +38,7 @@ def _month_date(month: str) -> str:
 
 
 def list_receipts(month: str | None) -> list[dict]:
-    where = ["1=1"]
+    where = ["r.deleted_at IS NULL"]
     params: dict = {}
     if month:
         where.append("to_char(r.issued_date, 'YYYY-MM') = %(m)s")
@@ -60,7 +60,7 @@ def list_receipt_items(receipt_id: int) -> list[dict]:
         SELECT li.id, li.line_no, li.raw_text, li.normalized_name, li.category_id,
                li.qty, li.unit_price, li.line_total, li.deleted_at
         FROM line_items li
-        WHERE li.receipt_id = %(id)s
+        WHERE li.receipt_id = %(id)s AND li.deleted_at IS NULL
         ORDER BY li.line_no
     """
     return _fetchall(sql, {"id": receipt_id})

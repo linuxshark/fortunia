@@ -37,6 +37,15 @@ def test_soft_delete_and_restore_receipt(admin_receipt):
     assert restored["deleted_at"] is None
 
 
+def test_deleted_receipt_disappears_and_restored_reappears_in_list(admin_receipt):
+    admin_db.soft_delete_receipt(admin_receipt)
+    rows = admin_db.list_receipts("2099-02")
+    assert all(r["id"] != admin_receipt for r in rows)
+    admin_db.restore_receipt(admin_receipt)
+    rows = admin_db.list_receipts("2099-02")
+    assert any(r["id"] == admin_receipt for r in rows)
+
+
 def test_list_receipt_items(admin_line_item, admin_receipt):
     rows = admin_db.list_receipt_items(admin_receipt)
     assert any(r["id"] == admin_line_item for r in rows)
@@ -61,3 +70,12 @@ def test_soft_delete_and_restore_line_item(admin_line_item):
     assert deleted["deleted_at"] is not None
     restored = admin_db.restore_line_item(admin_line_item)
     assert restored["deleted_at"] is None
+
+
+def test_deleted_line_item_disappears_and_restored_reappears_in_list(admin_line_item, admin_receipt):
+    admin_db.soft_delete_line_item(admin_line_item)
+    rows = admin_db.list_receipt_items(admin_receipt)
+    assert all(r["id"] != admin_line_item for r in rows)
+    admin_db.restore_line_item(admin_line_item)
+    rows = admin_db.list_receipt_items(admin_receipt)
+    assert any(r["id"] == admin_line_item for r in rows)
