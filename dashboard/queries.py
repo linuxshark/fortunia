@@ -64,7 +64,7 @@ def kpis(month: str) -> dict:
           COALESCE((
             SELECT COUNT(*) FROM line_items li
             JOIN receipts r2 ON r2.id = li.receipt_id
-            WHERE r2.deleted_at IS NULL AND r2.fund_category_id IS NULL
+            WHERE r2.deleted_at IS NULL AND li.deleted_at IS NULL AND r2.fund_category_id IS NULL
               AND to_char(COALESCE(r2.issued_date, r2.created_at::date), 'YYYY-MM') = %(m)s
           ), 0)                                                      AS items
         FROM receipts r
@@ -106,7 +106,7 @@ def recent_receipts(month: str, limit: int = 25) -> list[dict]:
         SELECT r.id, r.issued_date,
                COALESCE(m.name, 'Sin comercio') AS merchant,
                r.total, r.validation_status,
-               (SELECT COUNT(*) FROM line_items li WHERE li.receipt_id = r.id) AS items
+               (SELECT COUNT(*) FROM line_items li WHERE li.receipt_id = r.id AND li.deleted_at IS NULL) AS items
         FROM receipts r
         LEFT JOIN merchants m ON m.id = r.merchant_id
         WHERE r.deleted_at IS NULL AND to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s
@@ -128,7 +128,8 @@ def receipts_by_category(root: str, month: str) -> list[dict]:
         JOIN receipts r ON r.id = li.receipt_id AND r.deleted_at IS NULL
         LEFT JOIN merchants m ON m.id = r.merchant_id
         LEFT JOIN roots ro ON ro.id = li.category_id
-        WHERE to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s
+        WHERE li.deleted_at IS NULL
+          AND to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s
           AND COALESCE(ro.root_name, 'Sin categoria') = %(root)s
         ORDER BY COALESCE(r.issued_date, r.created_at::date) DESC, r.id DESC, li.line_no
     """
@@ -150,7 +151,7 @@ def receipt_detail(receipt_id: int) -> tuple[dict | None, list[dict]]:
                COALESCE(c.name, 'Sin categoria') AS category
         FROM line_items li
         LEFT JOIN categories c ON c.id = li.category_id
-        WHERE li.receipt_id = %(id)s
+        WHERE li.receipt_id = %(id)s AND li.deleted_at IS NULL
         ORDER BY li.line_no
     """
     with connect() as conn, conn.cursor() as cur:
@@ -291,7 +292,8 @@ def fund_totals(month: str) -> dict:
 
 def line_items_filter(month: str, category: str | None = None,
                       merchant: str | None = None) -> list[dict]:
-    where = ["r.deleted_at IS NULL", "to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s"]
+    where = ["r.deleted_at IS NULL", "li.deleted_at IS NULL",
+             "to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s"]
     params: dict = {"m": month}
     if category:
         where.append("COALESCE(ro.root_name, 'Sin categoria') = %(cat)s")
@@ -343,7 +345,7 @@ def fund_payments_for_month(month: str, category: str | None = None) -> list[dic
                    ) AS rn
             FROM fund_payments fp
             JOIN categories c ON c.id = fp.category_id
-            WHERE fp.month = %(m)s::date
+            WHERE fp.month = %(m)s::date AND fp.deleted_at IS NULL
         )
         SELECT NULL::bigint                          AS receipt_id,
                paid_at::date                          AS issued_date,
