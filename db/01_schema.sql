@@ -63,7 +63,8 @@ CREATE TABLE IF NOT EXISTS line_items (
   qty             NUMERIC(10,3) DEFAULT 1,
   unit_price      NUMERIC(14,2),
   line_total      NUMERIC(14,2),
-  created_at      TIMESTAMPTZ DEFAULT now()
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  deleted_at      TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_line_items_receipt ON line_items (receipt_id);
 
