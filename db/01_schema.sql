@@ -91,7 +91,7 @@ SELECT date_trunc('month', COALESCE(rc.issued_date, rc.created_at::date))::date 
        COALESCE(r.root_name, 'Sin categoria')    AS category,
        SUM(li.line_total)                         AS total
 FROM line_items li
-JOIN receipts rc ON rc.id = li.receipt_id AND rc.deleted_at IS NULL
+JOIN receipts rc ON rc.id = li.receipt_id AND rc.deleted_at IS NULL AND li.deleted_at IS NULL
 LEFT JOIN roots r ON r.id = li.category_id
 GROUP BY 1, 2
 ORDER BY 1 DESC, 3 DESC;
@@ -113,7 +113,7 @@ SELECT li.normalized_name,
        rc.issued_date,
        li.unit_price
 FROM line_items li
-JOIN receipts rc ON rc.id = li.receipt_id AND rc.deleted_at IS NULL
+JOIN receipts rc ON rc.id = li.receipt_id AND rc.deleted_at IS NULL AND li.deleted_at IS NULL
 LEFT JOIN merchants m ON m.id = rc.merchant_id
 WHERE li.normalized_name IS NOT NULL
 ORDER BY li.normalized_name, rc.issued_date;
@@ -122,13 +122,13 @@ ORDER BY li.normalized_name, rc.issued_date;
 CREATE OR REPLACE VIEW v_uncategorized_items AS
 SELECT li.id, li.raw_text, li.normalized_name, rc.issued_date
 FROM line_items li
-JOIN receipts rc ON rc.id = li.receipt_id AND rc.deleted_at IS NULL
+JOIN receipts rc ON rc.id = li.receipt_id AND rc.deleted_at IS NULL AND li.deleted_at IS NULL
 WHERE li.category_id IS NULL;
 
 -- Tax reconciliation (OCR-error detector)
 CREATE OR REPLACE VIEW v_tax_reconciliation AS
 SELECT rc.id, rc.folio, rc.total, rc.net, rc.tax,
-       COALESCE((SELECT SUM(line_total) FROM line_items li WHERE li.receipt_id = rc.id), 0) AS sum_lines,
+       COALESCE((SELECT SUM(line_total) FROM line_items li WHERE li.receipt_id = rc.id AND li.deleted_at IS NULL), 0) AS sum_lines,
        (rc.net * 1.19) AS net_times_iva
 FROM receipts rc
 WHERE rc.deleted_at IS NULL;

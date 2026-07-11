@@ -35,6 +35,8 @@ CREATE INDEX IF NOT EXISTS idx_fund_payments_category_month ON fund_payments (ca
 CREATE INDEX IF NOT EXISTS idx_fund_payments_month ON fund_payments (month);
 
 -- 3) Cuánto está "pagado" por (categoría, mes), respetando accumulation_mode.
+ALTER TABLE fund_payments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
 CREATE OR REPLACE VIEW v_fund_paid AS
 SELECT fp.category_id, fp.month,
        CASE WHEN c.accumulation_mode = 'sum'
