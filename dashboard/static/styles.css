@@ -221,9 +221,17 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   padding: .65rem .75rem; background: var(--bg-surface);
   transition: border-color .2s, background .2s;
 }
-.fund-card.is-paid {
+.fund-card.is-pagado {
   border-color: rgba(52,211,153,.3);
   background: rgba(52,211,153,.04);
+}
+.fund-card.is-parcial {
+  border-color: rgba(251,146,60,.28);
+  background: rgba(251,146,60,.04);
+}
+.fund-card.is-excedido {
+  border-color: rgba(248,113,113,.35);
+  background: rgba(248,113,113,.05);
 }
 .fund-card-head { display: flex; align-items: center; gap: .35rem; margin-bottom: .45rem; }
 .fund-emoji { font-size: .95rem; }
@@ -244,8 +252,27 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   transition: border-color .15s;
 }
 .fund-input input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-bg); }
-.fund-card-footer { display: flex; align-items: center; justify-content: center; margin-top: .55rem; }
-.fund-paid { font-size: .68rem; font-family: var(--font-mono); color: var(--muted); }
+/* per-card consumo del presupuesto: barra fina + monto pagado y estado en una línea */
+.fund-card-bar {
+  height: 5px; background: var(--bg-raised); border-radius: 4px;
+  overflow: hidden; border: 1px solid var(--border); margin-top: .55rem;
+}
+.fund-card-bar-fill {
+  height: 100%; width: 0; background: var(--muted);
+  transition: width .5s ease, background .5s ease;
+}
+.fund-card.is-parcial  .fund-card-bar-fill { background: var(--warn); }
+.fund-card.is-pagado   .fund-card-bar-fill { background: var(--accent); }
+.fund-card.is-excedido .fund-card-bar-fill { background: var(--danger); }
+.fund-card-status {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .4rem; margin-top: .4rem;
+}
+.fund-card-paid {
+  font-family: var(--font-mono); font-size: .64rem;
+  color: var(--muted-hi); font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
 .fund-badge-paid {
   background: var(--accent-dim); color: var(--accent);
   font-size: .6rem; font-family: var(--font-mono); letter-spacing: .06em;
@@ -253,6 +280,16 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
 }
 .fund-badge-pending {
   background: rgba(251,146,60,.15); color: var(--warn);
+  font-size: .6rem; font-family: var(--font-mono); letter-spacing: .06em;
+  padding: .1rem .45rem; border-radius: 3px; text-transform: uppercase;
+}
+.fund-badge-partial {
+  background: rgba(251,146,60,.15); color: var(--warn);
+  font-size: .6rem; font-family: var(--font-mono); letter-spacing: .06em;
+  padding: .1rem .45rem; border-radius: 3px; text-transform: uppercase;
+}
+.fund-badge-over {
+  background: rgba(248,113,113,.15); color: var(--danger);
   font-size: .6rem; font-family: var(--font-mono); letter-spacing: .06em;
   padding: .1rem .45rem; border-radius: 3px; text-transform: uppercase;
 }

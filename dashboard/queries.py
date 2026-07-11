@@ -55,6 +55,8 @@ def months_available() -> list[str]:
 
 
 def kpis(month: str) -> dict:
+    # Excluye boletas ruteadas al Fondo Común (fund_category_id IS NOT NULL): esas
+    # cuentan vía su pago del fondo, no como gasto OCR, para no doblar el balance.
     sql = """
         SELECT
           COALESCE(SUM(r.total), 0)                                  AS total,
@@ -62,11 +64,12 @@ def kpis(month: str) -> dict:
           COALESCE((
             SELECT COUNT(*) FROM line_items li
             JOIN receipts r2 ON r2.id = li.receipt_id
-            WHERE r2.deleted_at IS NULL
+            WHERE r2.deleted_at IS NULL AND r2.fund_category_id IS NULL
               AND to_char(COALESCE(r2.issued_date, r2.created_at::date), 'YYYY-MM') = %(m)s
           ), 0)                                                      AS items
         FROM receipts r
-        WHERE r.deleted_at IS NULL AND to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s
+        WHERE r.deleted_at IS NULL AND r.fund_category_id IS NULL
+          AND to_char(COALESCE(r.issued_date, r.created_at::date), 'YYYY-MM') = %(m)s
     """
     with connect() as conn, conn.cursor() as cur:
         cur.execute(sql, {"m": month})
@@ -202,11 +205,32 @@ def _month_date(month: str) -> str:
     return f"{month}-01"
 
 
+def fund_card_state(paid: float, budget: float) -> tuple[str, int]:
+    """Estado visual y % consumido de una tarjeta del Fondo, dado pagado y presupuesto.
+
+    Puro (sin DB) para ser testeable. Estados:
+      pendiente -> nada pagado; parcial -> 0 < pagado < presupuesto;
+      pagado -> pagado == presupuesto; excedido -> pagado > presupuesto.
+    'pct' es 0..100 (recortado) para el ancho de la barra; el excedido se marca
+    aparte con el estado, no estirando la barra."""
+    if paid <= 0:
+        return "pendiente", 0
+    if budget <= 0:
+        return "excedido", 100
+    pct = int(round(100 * paid / budget))
+    if paid > budget:
+        return "excedido", 100
+    if paid >= budget:
+        return "pagado", 100
+    return "parcial", max(0, min(100, pct))
+
+
 def fund_status(month: str) -> list[dict]:
     """Estado del fondo por categoría compartida. LEFT JOIN: muestra todas las
     categorías shared aunque no tengan fila ese mes (presupuesto = target_amount).
     'paid_amount' viene del ledger fund_payments vía v_fund_paid (respeta
-    accumulation_mode: suma para Alimentos/Restaurantes, último pago para el resto)."""
+    accumulation_mode: suma para Alimentos/Restaurantes/Gasolina, último pago para el resto).
+    Cada fila lleva además 'state' y 'pct'/'bar_width' para la tarjeta (ver fund_card_state)."""
     sql = """
         SELECT c.id AS category_id,
                c.name AS category,
@@ -225,7 +249,13 @@ def fund_status(month: str) -> list[dict]:
     """
     with connect() as conn, conn.cursor() as cur:
         cur.execute(sql, {"m": _month_date(month)})
-        return cur.fetchall()
+        rows = cur.fetchall()
+    for r in rows:
+        state, pct = fund_card_state(r["paid_amount"], r["budget_amount"])
+        r["state"] = state
+        r["pct"] = pct
+        r["bar_width"] = pct
+    return rows
 
 
 def fund_totals(month: str) -> dict:
@@ -296,7 +326,10 @@ def fund_payments_for_month(month: str, category: str | None = None) -> list[dic
     transacciones (cada comida/compra cuenta). Para categorías 'replace'
     (boletas fijas) solo se lista el pago más reciente — los anteriores son
     correcciones de monto, no gastos adicionales, y no deben duplicar el total."""
-    where = ["month = %(m)s::date", "(accumulation_mode = 'sum' OR rn = 1)"]
+    # source <> 'ocr': los pagos derivados de una boleta OCR ya se listan como los
+    # ítems de esa boleta; no se repiten aquí para no doblar el total del listado.
+    where = ["month = %(m)s::date", "(accumulation_mode = 'sum' OR rn = 1)",
+             "source IS DISTINCT FROM 'ocr'"]
     params: dict = {"m": _month_date(month)}
     if category:
         where.append("cat_name = %(cat)s")

@@ -87,13 +87,18 @@ def _overview_ctx(request: Request, month: str | None) -> dict:
     fund_rows = q.fund_status(month)
     fund_tot = q.fund_totals(month)
     inc_total = float(inc_kpis["total"])
-    exp_total = float(expense_kpis["total"])
-    balance_pct = int(100 * exp_total / inc_total) if inc_total > 0 else 0
+    # GASTOS del balance = boletas OCR + gasto del Fondo Común (todo lo compartido
+    # EXCEPTO Ahorro, que es plata que se aparta, no consumo). El paid_amount del
+    # fondo ya respeta accumulation_mode (suma/último) vía v_fund_paid.
+    fund_gastos = sum(r["paid_amount"] for r in fund_rows if r["category"] != "Ahorro")
+    gastos_total = float(expense_kpis["total"]) + float(fund_gastos)
+    balance_pct = int(100 * gastos_total / inc_total) if inc_total > 0 else 0
     return {
         "request": request,
         "month": month,
         "months": months,
         "kpis": expense_kpis,
+        "gastos_total": gastos_total,
         "income_kpis": inc_kpis,
         "income_categories": inc_cats,
         "income_chart_labels": [c["category"] for c in inc_cats],

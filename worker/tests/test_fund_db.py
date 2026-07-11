@@ -5,9 +5,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from categorize import categorize_shared  # noqa: E402
-from db import upsert_fund_payment  # noqa: E402
+from db import shared_category_id_by_name, upsert_fund_payment  # noqa: E402
 
 MONTH = date(2099, 1, 1)
+
+
+def test_shared_category_id_by_name_resuelve(db):
+    """Mapea el nombre que Gemini asigna a una boleta al id de la categoría shared."""
+    assert shared_category_id_by_name("Alimentos") is not None
+    # case-insensitive
+    assert shared_category_id_by_name("alimentos") == shared_category_id_by_name("Alimentos")
+
+
+def test_shared_category_id_by_name_none(db):
+    assert shared_category_id_by_name(None) is None
+    assert shared_category_id_by_name("") is None
+    assert shared_category_id_by_name("Farmacia") is None  # no es categoría compartida
 
 
 def test_categorize_shared_electricidad(db):

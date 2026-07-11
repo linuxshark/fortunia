@@ -30,6 +30,7 @@ Sin texto adicional, sin bloques de código markdown, solo el JSON:
   "total": número entero en CLP o null,
   "net": número entero en CLP o null,
   "tax": número entero en CLP o null,
+  "household_category": "una de la lista de abajo, o null",
   "items": [
     {
       "name": "nombre del producto",
@@ -48,6 +49,16 @@ Reglas críticas:
 - Si qty > 1 y solo ves el total, calcula unit_price = line_total / qty
 - Ignora líneas de TOTAL, SUBTOTAL, IVA, NETO, VUELTO — esas NO son ítems
 - Si un campo no es legible usa null, pero intenta extraer todos los ítems igual
+
+household_category — clasifica el GASTO COMPARTIDO del hogar que representa esta boleta.
+Devuelve EXACTAMENTE uno de estos nombres, o null si no encaja en ninguno:
+  "Alimentos"     — supermercado, almacén, feria, compra de comida para la casa
+  "Restaurantes"  — restaurant, comida rápida, delivery, café, bar
+  "Gasolina"      — bencina, combustible, estación de servicio (Copec, Shell, etc.)
+  "Agua", "Electricidad", "Internet", "GGCC" — cuentas/servicios del hogar
+  "Arriendo", "Jardin", "Auto (cuota)", "Remesas", "TAG"
+Regla: elige por el RUBRO del comercio, no por un ítem suelto. Una farmacia, ropa,
+electrónica u otra compra que NO sea del hogar compartido → null.
 """
 
 
@@ -136,6 +147,7 @@ def gemini_extract(raw: bytes, source_image_path: str | None = None) -> dict:
         "validation_status": status,
         "problems":          problems,
         "ted_decoded":       False,
+        "fund_category":     (data.get("household_category") or None),
     }
 
 

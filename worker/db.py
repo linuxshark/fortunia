@@ -11,7 +11,7 @@ RECEIPT_COLS = (
     "merchant_id", "doc_type", "tipo_dte", "folio", "rut_emisor", "rut_receptor",
     "issued_date", "net", "tax", "total", "ted_total", "header_source",
     "validation_status", "source_image_path", "image_sha256",
-    "ocr_engine", "ocr_confidence", "ocr_raw_text",
+    "ocr_engine", "ocr_confidence", "ocr_raw_text", "fund_category_id",
 )
 
 
@@ -100,8 +100,26 @@ def persist(result: dict) -> tuple[int | None, bool]:
             return None, False               # same rut+folio+doc_type already stored
 
 
+def shared_category_id_by_name(name: str | None) -> int | None:
+    """Resuelve el id de una categoría compartida por nombre exacto (case-insensitive).
+
+    Usado para mapear la categoría que Gemini asigna a una boleta OCR ('Alimentos',
+    'Gasolina', ...) al id real de la categoría 'shared'. None si no existe."""
+    if not name or not name.strip():
+        return None
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM categories WHERE classification = 'shared' "
+            "AND lower(name) = lower(%s) LIMIT 1",
+            (name.strip(),),
+        )
+        row = cur.fetchone()
+    return row["id"] if row else None
+
+
 def upsert_fund_payment(
-    category_id: int, month, amount: int, source: str, detail: str | None = None
+    category_id: int, month, amount: int, source: str, detail: str | None = None,
+    receipt_id: int | None = None,
 ) -> tuple:
     """Registra un pago de categoría compartida en el ledger (fund_payments).
 
@@ -128,10 +146,11 @@ def upsert_fund_payment(
         )
         cur.execute(
             """
-            INSERT INTO fund_payments (category_id, month, amount, detail, source)
-            VALUES (%(cat)s, %(month)s, %(amount)s, %(detail)s, %(source)s)
+            INSERT INTO fund_payments (category_id, month, amount, detail, source, receipt_id)
+            VALUES (%(cat)s, %(month)s, %(amount)s, %(detail)s, %(source)s, %(rid)s)
             """,
-            {"cat": category_id, "month": month, "amount": amount, "detail": detail, "source": source},
+            {"cat": category_id, "month": month, "amount": amount, "detail": detail,
+             "source": source, "rid": receipt_id},
         )
         cur.execute(
             """

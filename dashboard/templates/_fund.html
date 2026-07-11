@@ -25,7 +25,7 @@
 
   <div class="fund-grid">
     {% for r in fund_rows %}
-    <div class="fund-card {% if r.paid %}is-paid{% endif %}">
+    <div class="fund-card is-{{ r.state }}">
       <div class="fund-card-head">
         <span class="fund-emoji">{{ emoji_for(r.category) }}</span>
         <span class="fund-name">{{ r.category }}</span>
@@ -41,8 +41,14 @@
           </span>
         </label>
       </form>
-      <div class="fund-card-footer">
-        {% if r.paid %}<span class="badge fund-badge-paid">Pagado</span>
+      <div class="fund-card-bar">
+        <div class="fund-card-bar-fill" style="width: {{ r.bar_width }}%;"></div>
+      </div>
+      <div class="fund-card-status">
+        <span class="fund-card-paid">{{ r.paid_amount | clp }}</span>
+        {% if r.state == 'pagado' %}<span class="badge fund-badge-paid">Pagado</span>
+        {% elif r.state == 'parcial' %}<span class="badge fund-badge-partial">Parcial</span>
+        {% elif r.state == 'excedido' %}<span class="badge fund-badge-over">Excedido</span>
         {% else %}<span class="badge fund-badge-pending">Pendiente</span>{% endif %}
       </div>
     </div>

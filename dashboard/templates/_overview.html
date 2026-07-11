@@ -13,7 +13,7 @@
     </div>
     <div class="balance-item expense-side">
       <small class="muted">Gastos</small>
-      <strong>{{ kpis.total | clp }}</strong>
+      <strong>{{ gastos_total | clp }}</strong>
     </div>
     <div class="balance-item">
       <small class="muted">Ahorro</small>
@@ -31,7 +31,7 @@
 {# 3. KPIs — expense summary #}
 <section class="kpis grid">
   <article class="kpi">
-    <small class="muted">Total gastos mes</small>
+    <small class="muted">Total boletas OCR</small>
     <h2>{{ kpis.total | clp }}</h2>
   </article>
   <article class="kpi">

@@ -42,6 +42,7 @@ FROM (VALUES
   ('super',         'contains', 'Alimentos',  'Alimentos',  20),
   ('arriendo',      'contains', 'Arriendo',   'Arriendo',   10),
   ('dividendo',     'contains', 'Arriendo',   'Arriendo',   10),
+  ('hipoteca',      'contains', 'Arriendo',   'Arriendo',   10),
   ('jardin',        'contains', 'Jardin',     'Jardin',     10),
   ('jardín',        'contains', 'Jardin',     'Jardin',     10),
   ('restaurant',    'contains', 'Restaurantes',       'Restaurantes',       10),
