@@ -12,6 +12,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 import db
+from admin import router as admin_router
 from categorize import categorize, categorize_income, categorize_shared
 from intent import classify
 from text_income import parse_income
@@ -20,6 +21,7 @@ from extractor import extract_from_bytes
 from text_expense import ParseError, parse_expense
 
 app = FastAPI(title="fortunia-worker", version="0.3.0")
+app.include_router(admin_router)
 
 
 class TextExpense(BaseModel):
@@ -42,7 +44,23 @@ async def ocr(image: UploadFile = File(...)) -> dict:
         path.write_bytes(raw)
 
     result = extract_from_bytes(raw, source_image_path=str(path))
+
+    # ¿Es un gasto COMPARTIDO del hogar (ej. supermercado→Alimentos)? Se marca la
+    # boleta y, tras persistir, se genera un pago del Fondo Común vinculado a ella.
+    fund_cat_id = _resolve_fund_category(result)
+    result["fund_category_id"] = fund_cat_id
+
     receipt_id, created = db.persist(result)
+
+    routed_to_fund = False
+    total = result.get("total")
+    if created and fund_cat_id is not None and total and total > 0:
+        month = (result.get("issued_date") or date.today()).replace(day=1)
+        db.upsert_fund_payment(
+            fund_cat_id, month, int(total), "ocr",
+            result.get("merchant_name"), receipt_id=receipt_id,
+        )
+        routed_to_fund = True
 
     return {
         "status": "stored" if created else "duplicate",
@@ -58,7 +76,23 @@ async def ocr(image: UploadFile = File(...)) -> dict:
         "items": len(result["line_items"]),
         "validation_status": result["validation_status"],
         "problems": result["problems"],
+        "routed_to_fund": routed_to_fund,
+        "fund_category_id": fund_cat_id,
     }
+
+
+def _resolve_fund_category(result: dict) -> int | None:
+    """Mapea una boleta OCR a una categoría compartida del Fondo Común, o None.
+
+    1) Categoría que Gemini asignó a la boleta ('household_category') → id shared.
+    2) Fallback determinista: nombre del COMERCIO contra aliases compartidos
+       (solo el comercio, no el texto de ítems, para evitar falsos positivos como
+       un producto 'agua' que rutearía a la cuenta de Agua)."""
+    cid = db.shared_category_id_by_name(result.get("fund_category"))
+    if cid is not None:
+        return cid
+    cid, _, _ = categorize_shared(result.get("merchant_name") or "")
+    return cid
 
 
 def _register_expense(text: str) -> dict:
