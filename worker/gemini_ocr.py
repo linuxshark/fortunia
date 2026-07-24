@@ -1,6 +1,6 @@
 """Gemini Vision fallback para extracción cuando Tesseract falla o tiene baja confianza.
 
-Usa gemini-2.5-flash (multimodal) para extraer el JSON completo de la boleta.
+Usa Gemini (multimodal) para extraer el JSON completo de la boleta.
 Devuelve el mismo dict que extract_from_bytes para ser drop-in replacement.
 """
 from __future__ import annotations
@@ -13,6 +13,15 @@ from datetime import date
 
 from normalize import parse_date
 from validate import validate
+
+# gemini-2.5-flash y gemini-2.5-flash-lite fueron retirados por Google para cuentas
+# nuevas (404 "no longer available to new users") — verificado en vivo 2026-07-14.
+# Mismo orden que agents.defaults.model en openclaw.json para consistencia.
+_MODEL_CANDIDATES = (
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash",
+)
 
 
 _PROMPT = """\
@@ -71,16 +80,33 @@ def _strip_markdown(text: str) -> str:
 
 def gemini_extract(raw: bytes, source_image_path: str | None = None) -> dict:
     """Extrae datos de boleta usando Gemini Vision. Misma firma que extract_from_bytes."""
-    import google.generativeai as genai
+    from google import genai
     import PIL.Image
 
     from config import settings
 
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
+    client = genai.Client(api_key=settings.gemini_api_key)
     img = PIL.Image.open(io.BytesIO(raw))
-    response = model.generate_content([_PROMPT, img])
+
+    used_model = None
+    response = None
+    last_error: Exception | None = None
+    for model_name in _MODEL_CANDIDATES:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[_PROMPT, img],
+            )
+            used_model = model_name
+            break
+        except Exception as exc:  # noqa: BLE001 - probing candidates, next one may work
+            last_error = exc
+            continue
+
+    if response is None:
+        raise RuntimeError(
+            f"All Gemini fallback candidates failed: {_MODEL_CANDIDATES}"
+        ) from last_error
 
     raw_json = _strip_markdown(response.text)
     data = json.loads(raw_json)
@@ -140,7 +166,7 @@ def gemini_extract(raw: bytes, source_image_path: str | None = None) -> dict:
         **header,
         "image_sha256":      sha,
         "source_image_path": source_image_path,
-        "ocr_engine":        "gemini-2.5-flash",
+        "ocr_engine":        used_model,
         "ocr_confidence":    95.0,
         "ocr_raw_text":      raw_json,
         "line_items":        items,

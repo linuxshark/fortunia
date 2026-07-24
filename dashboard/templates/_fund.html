@@ -46,9 +46,9 @@
       </div>
       <div class="fund-card-status">
         <span class="fund-card-paid">{{ r.paid_amount | clp }}</span>
-        {% if r.state == 'pagado' %}<span class="badge fund-badge-paid">Pagado</span>
+        {% if r.state == 'pagado' %}<span class="badge fund-badge-paid fund-badge-icon" title="Pagado" aria-label="Pagado">✓</span>
         {% elif r.state == 'parcial' %}<span class="badge fund-badge-partial">Parcial</span>
-        {% elif r.state == 'excedido' %}<span class="badge fund-badge-over">Excedido</span>
+        {% elif r.state == 'excedido' %}<span class="badge fund-badge-over fund-badge-icon" title="Excedido" aria-label="Excedido">⚠</span>
         {% else %}<span class="badge fund-badge-pending">Pendiente</span>{% endif %}
       </div>
     </div>

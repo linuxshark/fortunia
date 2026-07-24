@@ -36,6 +36,7 @@ FROM (VALUES
   ('agua',          'contains', 'Agua',               'Agua',               10),
   ('luz',           'contains', 'Electricidad',       'Electricidad',       10),
   ('electricidad',  'contains', 'Electricidad',       'Electricidad',       10),
+  ('eléctric',      'contains', 'Electricidad',       'Electricidad',       10),
   ('internet',      'contains', 'Internet',           'Internet',           10),
   ('wifi',          'contains', 'Internet',           'Internet',           10),
   ('supermercado',  'contains', 'Alimentos',  'Alimentos',  10),

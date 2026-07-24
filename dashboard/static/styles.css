@@ -266,12 +266,14 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
 .fund-card.is-excedido .fund-card-bar-fill { background: var(--danger); }
 .fund-card-status {
   display: flex; align-items: center; justify-content: space-between;
-  gap: .4rem; margin-top: .4rem;
+  flex-wrap: wrap; gap: .2rem .4rem; margin-top: .4rem;
 }
+.fund-card-status .badge { flex-shrink: 0; white-space: nowrap; }
 .fund-card-paid {
   font-family: var(--font-mono); font-size: .64rem;
   color: var(--muted-hi); font-variant-numeric: tabular-nums;
   letter-spacing: .01em;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .fund-badge-paid {
   background: var(--accent-dim); color: var(--accent);
@@ -294,6 +296,11 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   padding: .1rem .45rem; border-radius: 3px; text-transform: uppercase;
 }
 .fund-overspent-text { color: var(--danger); }
+.fund-badge-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.1rem; height: 1.1rem; padding: 0;
+  font-size: .68rem; line-height: 1; border-radius: 50%;
+}
 
 /* ── Particles canvas ────────────────────────────────────────── */
 #bg-canvas {

@@ -50,6 +50,7 @@ FROM (VALUES
   ('CONSULTA',    'contains', 'Consulta medica',   17, 20),
   ('LUZ',         'contains', 'Electricidad',      18, 20),
   ('ELECTRICIDAD','contains', 'Electricidad',      18, 10),
+  ('ELÉCTRIC',    'contains', 'Electricidad',      18, 10),
   ('AGUA POTABLE','contains', 'Agua potable',      18, 10),
   ('INTERNET',    'contains', 'Internet',          18, 10),
   ('CUENTA',      'contains', 'Cuenta de servicio',18, 30),
