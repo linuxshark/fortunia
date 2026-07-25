@@ -5,10 +5,11 @@ Corre interno en :8000; compose lo publica en host :8001.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -130,13 +131,35 @@ def overview_partial(request: Request, month: str | None = None):
     return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
 
 
+_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+@app.post("/fund/plan", response_class=HTMLResponse)
+def fund_plan(request: Request, month: str = Form(...)):
+    """Siembra el mes siguiente desde 'month' y renderiza la cara trasera del flip."""
+    if not _MONTH_RE.match(month):
+        raise HTTPException(status_code=400, detail="month debe ser 'YYYY-MM'")
+    target = q.next_month(month)
+    writes.seed_month_from(month, target)
+    plan = q.fund_plan(target, compare_to=month)
+    return templates.TemplateResponse(request, "_fund_plan.html", {
+        "request": request, "plan": plan, "compare_to": month,
+    })
+
+
 @app.post("/fund/budget", response_class=HTMLResponse)
 def fund_budget(request: Request, category_id: int = Form(...),
-                month: str = Form(...), amount: int = Form(...)):
+                month: str = Form(...), amount: int = Form(...),
+                view: str = Form(""), compare_to: str = Form("")):
     """Edita el presupuesto mensual de una categoría compartida (escritura acotada)."""
     if amount < 0:
         amount = 0
     writes.set_budget(category_id, month, amount)
+    if view == "plan":
+        plan = q.fund_plan(month, compare_to=compare_to)
+        return templates.TemplateResponse(request, "_fund_plan.html", {
+            "request": request, "plan": plan, "compare_to": compare_to,
+        })
     return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
 
 
