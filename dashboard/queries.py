@@ -46,6 +46,9 @@ def months_available() -> list[str]:
         SELECT DISTINCT m FROM (
             SELECT to_char(date_trunc('month', COALESCE(issued_date, created_at::date)), 'YYYY-MM') AS m
             FROM receipts WHERE deleted_at IS NULL
+            UNION
+            SELECT to_char(month, 'YYYY-MM') AS m
+            FROM fund_monthly
         ) sub
         ORDER BY m DESC
     """
@@ -310,6 +313,33 @@ def fund_totals(month: str) -> dict:
         "overspent": overspent,
         "excedido": max(0.0, pagado - objetivo),
     }
+
+
+def fund_plan(month: str, compare_to: str) -> dict:
+    """Estado de planificación de 'month' (mes futuro), comparado contra 'compare_to'.
+
+    Misma expresión de presupuesto efectivo que fund_status() pero sin JOIN a
+    v_fund_paid: un mes futuro no tiene pagos."""
+    sql = """
+        SELECT c.id AS category_id,
+               c.name AS category,
+               COALESCE(fm.budget_amount, c.target_amount, 0)::float8   AS budget_amount,
+               COALESCE(fm_prev.budget_amount, c.target_amount, 0)::float8 AS prev_budget
+        FROM categories c
+        LEFT JOIN fund_monthly fm
+          ON fm.category_id = c.id AND fm.month = %(m)s::date
+        LEFT JOIN fund_monthly fm_prev
+          ON fm_prev.category_id = c.id AND fm_prev.month = %(prev)s::date
+        WHERE c.classification = 'shared'
+        ORDER BY c.id
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(sql, {"m": _month_date(month), "prev": _month_date(compare_to)})
+        rows = cur.fetchall()
+    for r in rows:
+        r["delta"] = r["budget_amount"] - r["prev_budget"]
+    total = sum(r["budget_amount"] for r in rows)
+    return {"month": month, "rows": rows, "total": total}
 
 
 def line_items_filter(month: str, category: str | None = None,
