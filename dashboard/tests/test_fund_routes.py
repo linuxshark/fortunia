@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+from fastapi.responses import HTMLResponse
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -41,7 +42,14 @@ def test_fund_budget_view_plan_rerenders_plan_partial(monkeypatch):
 
 def test_fund_budget_default_view_unchanged(monkeypatch):
     monkeypatch.setattr(appmod.writes, "set_budget", lambda *a, **k: None)
-    monkeypatch.setattr(appmod, "_overview_ctx", lambda request, month: {"request": request, "month": month})
+    captured = {}
+
+    def fake_response(request, name, context=None, **kw):
+        captured["name"] = name
+        return HTMLResponse("ok")
+
+    monkeypatch.setattr(appmod.templates, "TemplateResponse", fake_response)
     client = TestClient(appmod.app)
     r = client.post("/fund/budget", data={"category_id": "1", "month": "2026-07", "amount": "1000"})
     assert r.status_code == 200
+    assert captured["name"] == "_overview.html"
