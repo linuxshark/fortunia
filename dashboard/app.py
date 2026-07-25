@@ -65,6 +65,7 @@ def _clp(value) -> str:
 templates.env.filters["clp"] = _clp
 templates.env.globals["color_for"] = color_for
 templates.env.globals["emoji_for"] = emoji_for
+templates.env.globals["fund_delta_label"] = q.fund_delta_label
 
 
 def resolve_month(month: str | None, months: list[str]) -> str:

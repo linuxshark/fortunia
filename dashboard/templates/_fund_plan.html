@@ -1,0 +1,43 @@
+{# dashboard/templates/_fund_plan.html — cara trasera del flip: presupuesto del mes siguiente #}
+{% set MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+{% set anio, mes_num = plan.month.split('-') %}
+<article class="fund fund-plan">
+  <header class="fund-header">
+    <strong>Presupuesto de {{ MESES[mes_num | int] }} {{ anio }}</strong>
+    <span class="fund-figures">
+      <span class="muted">Objetivo</span> {{ plan.total | clp }}
+    </span>
+  </header>
+
+  <button type="button" class="fund-back-btn"
+          onclick="this.closest('.fund-flip').classList.remove('is-flipped')">
+    ← Volver
+  </button>
+
+  <div class="fund-grid">
+    {% for r in plan.rows %}
+    {% set delta_text, delta_class = fund_delta_label(r.delta) %}
+    <div class="fund-card fund-card-plan">
+      <div class="fund-card-head">
+        <span class="fund-emoji">{{ emoji_for(r.category) }}</span>
+        <span class="fund-name">{{ r.category }}</span>
+      </div>
+      <form class="fund-budget-form" hx-post="/fund/budget" hx-target="#fund-back"
+            hx-swap="innerHTML" hx-trigger="change from:input[name='amount']">
+        <input type="hidden" name="month" value="{{ plan.month }}">
+        <input type="hidden" name="category_id" value="{{ r.category_id }}">
+        <input type="hidden" name="view" value="plan">
+        <input type="hidden" name="compare_to" value="{{ compare_to }}">
+        <label class="fund-budget-label">Presupuesto
+          <span class="fund-input"><span class="peso">$</span>
+            <input type="number" name="amount" min="0" step="1000"
+                   value="{{ r.budget_amount | round | int }}">
+          </span>
+        </label>
+      </form>
+      <div class="fund-card-delta {{ delta_class }}">{{ delta_text }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</article>
