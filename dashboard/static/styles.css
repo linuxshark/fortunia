@@ -314,9 +314,11 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   backface-visibility: hidden;
   min-width: 0;
 }
-.fund-front { perspective: 1600px; }
-.fund-back { transform: rotateY(180deg); }
+.fund-front { perspective: 1600px; pointer-events: auto; }
+.fund-back { transform: rotateY(180deg); pointer-events: none; }
 .fund-back:empty { visibility: hidden; }
+.fund-flip.is-flipped .fund-front { pointer-events: none; }
+.fund-flip.is-flipped .fund-back { pointer-events: auto; }
 
 .fund-flip-btn, .fund-back-btn {
   font-family: var(--font-mono); font-size: .68rem;

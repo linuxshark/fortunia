@@ -10,8 +10,7 @@
         </span>
         <button type="button" class="fund-flip-btn"
                 hx-post="/fund/plan" hx-target="#fund-back" hx-swap="innerHTML"
-                hx-vals='{"month": "{{ month }}"}'
-                hx-on::after-swap="this.closest('.fund-flip').classList.add('is-flipped')">
+                hx-vals='{"month": "{{ month }}"}'>
           Planificar mes siguiente →
         </button>
       </header>
@@ -64,5 +63,6 @@
       </div>
     </article>
   </div>
-  <div class="fund-face fund-back" id="fund-back"></div>
+  <div class="fund-face fund-back" id="fund-back"
+       hx-on::after-swap="this.closest('.fund-flip').classList.add('is-flipped')"></div>
 </div>
