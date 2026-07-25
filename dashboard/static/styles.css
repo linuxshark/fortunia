@@ -315,10 +315,10 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   min-width: 0;
 }
 .fund-front { perspective: 1600px; pointer-events: auto; }
-.fund-back { transform: rotateY(180deg); pointer-events: none; }
+.fund-back { transform: rotateY(180deg); pointer-events: none; visibility: hidden; }
 .fund-back:empty { visibility: hidden; }
-.fund-flip.is-flipped .fund-front { pointer-events: none; }
-.fund-flip.is-flipped .fund-back { pointer-events: auto; }
+.fund-flip.is-flipped .fund-front { pointer-events: none; visibility: hidden; }
+.fund-flip.is-flipped .fund-back { pointer-events: auto; visibility: visible; }
 
 .fund-flip-btn, .fund-back-btn {
   font-family: var(--font-mono); font-size: .68rem;
@@ -343,9 +343,9 @@ table .num { text-align: right; font-family: var(--font-mono); font-size: .85rem
   .fund-flip { transition: none; }
   .fund-flip.is-flipped { transform: none; }
   .fund-front, .fund-back { transition: opacity .15s ease; }
-  .fund-flip:not(.is-flipped) .fund-back { opacity: 0; pointer-events: none; }
-  .fund-flip.is-flipped .fund-front { opacity: 0; pointer-events: none; }
-  .fund-flip.is-flipped .fund-back { transform: none; opacity: 1; }
+  .fund-flip:not(.is-flipped) .fund-back { opacity: 0; pointer-events: none; visibility: hidden; }
+  .fund-flip.is-flipped .fund-front { opacity: 0; pointer-events: none; visibility: hidden; }
+  .fund-flip.is-flipped .fund-back { transform: none; opacity: 1; visibility: visible; }
 }
 
 /* ── Particles canvas ────────────────────────────────────────── */

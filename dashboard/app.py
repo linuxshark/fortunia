@@ -132,7 +132,7 @@ def overview_partial(request: Request, month: str | None = None):
     return templates.TemplateResponse(request, "_overview.html", _overview_ctx(request, month))
 
 
-_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+_MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
 @app.post("/fund/plan", response_class=HTMLResponse)
@@ -155,6 +155,9 @@ def fund_budget(request: Request, category_id: int = Form(...),
     """Edita el presupuesto mensual de una categoría compartida (escritura acotada)."""
     if amount < 0:
         amount = 0
+    if view == "plan":
+        if not _MONTH_RE.match(month) or not _MONTH_RE.match(compare_to):
+            raise HTTPException(status_code=400, detail="month/compare_to deben ser 'YYYY-MM'")
     writes.set_budget(category_id, month, amount)
     if view == "plan":
         plan = q.fund_plan(month, compare_to=compare_to)

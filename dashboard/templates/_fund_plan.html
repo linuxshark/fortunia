@@ -24,7 +24,7 @@
         <span class="fund-name">{{ r.category }}</span>
       </div>
       <form class="fund-budget-form" hx-post="/fund/budget" hx-target="#fund-back"
-            hx-swap="innerHTML" hx-trigger="change from:input[name='amount']">
+            hx-swap="innerHTML" hx-trigger="change">
         <input type="hidden" name="month" value="{{ plan.month }}">
         <input type="hidden" name="category_id" value="{{ r.category_id }}">
         <input type="hidden" name="view" value="plan">
