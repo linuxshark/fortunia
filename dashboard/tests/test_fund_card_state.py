@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from queries import fund_card_state, next_month  # noqa: E402
+from queries import fund_card_state, fund_delta_label, next_month  # noqa: E402
 
 
 def test_pendiente_sin_pagos():
@@ -43,3 +43,19 @@ def test_next_month_salto_de_anio():
 def test_next_month_formato_dos_digitos():
     assert next_month("2026-01") == "2026-02"
     assert next_month("2026-09") == "2026-10"
+
+
+def test_fund_delta_label_positivo():
+    assert fund_delta_label(50000) == ("+$50.000 ▲", "is-up")
+
+
+def test_fund_delta_label_negativo():
+    assert fund_delta_label(-20000) == ("−$20.000 ▼", "is-down")
+
+
+def test_fund_delta_label_cero():
+    assert fund_delta_label(0) == ("= sin cambios", "is-same")
+
+
+def test_fund_delta_label_miles_grandes():
+    assert fund_delta_label(1234567) == ("+$1.234.567 ▲", "is-up")

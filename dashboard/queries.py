@@ -214,6 +214,20 @@ def next_month(month: str) -> str:
     return f"{year}-{mon + 1:02d}"
 
 
+def _clp_amount(n: float) -> str:
+    """Formatea un monto con separador de miles '.', sin decimales, sin signo."""
+    return f"{int(round(abs(n))):,}".replace(",", ".")
+
+
+def fund_delta_label(delta: float) -> tuple[str, str]:
+    """Texto y clase CSS para el delta de presupuesto vs. el mes de origen."""
+    if delta > 0:
+        return f"+${_clp_amount(delta)} ▲", "is-up"
+    if delta < 0:
+        return f"−${_clp_amount(delta)} ▼", "is-down"
+    return "= sin cambios", "is-same"
+
+
 def fund_card_state(paid: float, budget: float) -> tuple[str, int]:
     """Estado visual y % consumido de una tarjeta del Fondo, dado pagado y presupuesto.
 
