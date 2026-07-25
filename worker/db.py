@@ -117,6 +117,17 @@ def shared_category_id_by_name(name: str | None) -> int | None:
     return row["id"] if row else None
 
 
+def shared_category_name(category_id: int) -> str | None:
+    """Nombre canónico de una categoría compartida por id. None si no existe."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT name FROM categories WHERE id = %s AND classification = 'shared'",
+            (category_id,),
+        )
+        row = cur.fetchone()
+    return row["name"] if row else None
+
+
 def upsert_fund_payment(
     category_id: int, month, amount: int, source: str, detail: str | None = None,
     receipt_id: int | None = None,

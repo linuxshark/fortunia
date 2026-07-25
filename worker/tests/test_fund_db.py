@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from categorize import categorize_shared  # noqa: E402
+from categorize import categorize_shared, resolve_shared  # noqa: E402
 from db import shared_category_id_by_name, upsert_fund_payment  # noqa: E402
 
 MONTH = date(2099, 1, 1)
@@ -39,6 +39,42 @@ def test_categorize_shared_no_match(db):
     cat_id, _, source = categorize_shared("pan amasado")
     assert cat_id is None
     assert source == "unmatched"
+
+
+def test_categorize_shared_vocabulario_natural(db):
+    """El vocabulario con que uno escribe por Telegram debe rutear al Fondo.
+
+    Regresión: "gasté 806.770 en alimentos" caía al flujo de boleta de texto
+    porque 'alimentos' —el nombre mismo de la categoría— no era alias."""
+    for texto, esperado in (
+        ("alimentos", "Alimentos"),
+        ("comida", "Alimentos"),
+        ("mercado", "Alimentos"),
+        ("feria", "Alimentos"),
+        ("almuerzo", "Restaurantes"),
+        ("cena", "Restaurantes"),
+    ):
+        cat_id, norm, source = categorize_shared(texto)
+        assert cat_id is not None, f"{texto!r} no ruteó al fondo"
+        assert norm == esperado, f"{texto!r} → {norm!r}, esperaba {esperado!r}"
+        assert source == "rule"
+
+
+def test_resolve_shared_fallback_por_nombre_de_categoria(db):
+    """Todo nombre de categoría shared debe rutear al fondo, tenga alias o no.
+
+    Cierra el agujero de diseño: shared_category_id_by_name() se usaba solo en
+    el flujo OCR, así que escribir el nombre literal funcionaba por foto pero
+    no por texto."""
+    with db.cursor() as cur:
+        cur.execute("SELECT id, name FROM categories WHERE classification = 'shared'")
+        shared = cur.fetchall()
+
+    for cat_id, name in shared:
+        got_id, norm, source = resolve_shared(name)
+        assert got_id == cat_id, f"{name!r} → {got_id}, esperaba {cat_id}"
+        assert norm == name
+        assert source in ("rule", "name")
 
 
 def test_upsert_fund_payment_inicial(db, clean_fund):

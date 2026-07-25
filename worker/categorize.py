@@ -50,3 +50,22 @@ def categorize_shared(raw_text: str) -> tuple[int | None, str | None, str]:
     en vez del flujo normal de gasto. Devuelve (category_id, normalized_name, source).
     """
     return _categorize(raw_text, "shared")
+
+
+def resolve_shared(raw_text: str) -> tuple[int | None, str | None, str]:
+    """Resuelve texto a una categoría del Fondo Común: aliases, luego nombre literal.
+
+    Los aliases cubren el vocabulario coloquial ('bencina' → Gasolina) pero no
+    garantizan el nombre de la categoría misma; escribir "gasté X en alimentos"
+    caía al flujo de boleta de texto porque 'alimentos' no era alias. El fallback
+    por nombre hace que TODA categoría compartida sea direccionable por texto,
+    incluidas las que se agreguen después. source: 'rule' | 'name' | 'unmatched'.
+    """
+    cat_id, norm, source = categorize_shared(raw_text)
+    if cat_id is not None:
+        return cat_id, norm, source
+
+    cat_id = db.shared_category_id_by_name(raw_text)
+    if cat_id is not None:
+        return cat_id, db.shared_category_name(cat_id), "name"
+    return None, None, "unmatched"

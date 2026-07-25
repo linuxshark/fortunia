@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 import db
 from admin import router as admin_router
-from categorize import categorize, categorize_income, categorize_shared
+from categorize import categorize, categorize_income, categorize_shared, resolve_shared
 from intent import classify
 from text_income import parse_income
 from config import settings
@@ -101,7 +101,7 @@ def _register_expense(text: str) -> dict:
     amount = parsed["amount"]
 
     # 1) ¿Es un gasto COMPARTIDO del hogar? -> ruta al Fondo Común (no crea receipt).
-    shared_id, shared_norm, shared_src = categorize_shared(parsed["category_text"])
+    shared_id, shared_norm, shared_src = resolve_shared(parsed["category_text"])
     if shared_id is not None:
         month = date.today().replace(day=1)
         detail = parsed.get("detail")
