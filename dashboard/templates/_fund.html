@@ -1,57 +1,68 @@
 {# dashboard/templates/_fund.html — Fondo Común: barra de progreso + tarjetas editables #}
-<article class="fund">
-  <header class="fund-header">
-    <strong>Fondo Común del hogar</strong>
-    <span class="fund-figures">
-      <span class="muted">Pagado</span> {{ fund_totals.pagado | clp }}
-      <span class="muted">/ Objetivo</span> {{ fund_totals.objetivo | clp }}
-    </span>
-  </header>
+<div class="fund-flip">
+  <div class="fund-face fund-front">
+    <article class="fund">
+      <header class="fund-header">
+        <strong>Fondo Común del hogar</strong>
+        <span class="fund-figures">
+          <span class="muted">Pagado</span> {{ fund_totals.pagado | clp }}
+          <span class="muted">/ Objetivo</span> {{ fund_totals.objetivo | clp }}
+        </span>
+        <button type="button" class="fund-flip-btn"
+                hx-post="/fund/plan" hx-target="#fund-back" hx-swap="innerHTML"
+                hx-vals='{"month": "{{ month }}"}'
+                hx-on::after-swap="this.closest('.fund-flip').classList.add('is-flipped')">
+          Planificar mes siguiente →
+        </button>
+      </header>
 
-  <div class="fund-bar-wrap" title="{{ fund_totals.pct }}% del fondo utilizado">
-    <div class="fund-bar-fill" style="width: {{ fund_totals.bar_width }}%; background: {{ fund_totals.bar_color }};"></div>
-  </div>
-  {% if fund_totals.overspent %}
-  <p class="fund-remaining fund-overspent">
-    ⚠ Excedido por <strong>{{ fund_totals.excedido | clp }}</strong>
-    — pagado {{ fund_totals.pagado | clp }} de {{ fund_totals.objetivo | clp }}
-  </p>
-  {% else %}
-  <p class="fund-remaining muted">
-    Fondo disponible: <strong>{{ fund_totals.restante | clp }}</strong>
-    <span class="fund-pct">({{ fund_totals.pct }}% utilizado)</span>
-  </p>
-  {% endif %}
+      <div class="fund-bar-wrap" title="{{ fund_totals.pct }}% del fondo utilizado">
+        <div class="fund-bar-fill" style="width: {{ fund_totals.bar_width }}%; background: {{ fund_totals.bar_color }};"></div>
+      </div>
+      {% if fund_totals.overspent %}
+      <p class="fund-remaining fund-overspent">
+        ⚠ Excedido por <strong>{{ fund_totals.excedido | clp }}</strong>
+        — pagado {{ fund_totals.pagado | clp }} de {{ fund_totals.objetivo | clp }}
+      </p>
+      {% else %}
+      <p class="fund-remaining muted">
+        Fondo disponible: <strong>{{ fund_totals.restante | clp }}</strong>
+        <span class="fund-pct">({{ fund_totals.pct }}% utilizado)</span>
+      </p>
+      {% endif %}
 
-  <div class="fund-grid">
-    {% for r in fund_rows %}
-    <div class="fund-card is-{{ r.state }}">
-      <div class="fund-card-head">
-        <span class="fund-emoji">{{ emoji_for(r.category) }}</span>
-        <span class="fund-name">{{ r.category }}</span>
+      <div class="fund-grid">
+        {% for r in fund_rows %}
+        <div class="fund-card is-{{ r.state }}">
+          <div class="fund-card-head">
+            <span class="fund-emoji">{{ emoji_for(r.category) }}</span>
+            <span class="fund-name">{{ r.category }}</span>
+          </div>
+          <form class="fund-budget-form" hx-post="/fund/budget" hx-target="#overview"
+                hx-swap="innerHTML" hx-trigger="change from:input[name='amount']">
+            <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="category_id" value="{{ r.category_id }}">
+            <label class="fund-budget-label">Presupuesto
+              <span class="fund-input"><span class="peso">$</span>
+                <input type="number" name="amount" min="0" step="1000"
+                       value="{{ r.budget_amount | round | int }}">
+              </span>
+            </label>
+          </form>
+          <div class="fund-card-bar">
+            <div class="fund-card-bar-fill" style="width: {{ r.bar_width }}%;"></div>
+          </div>
+          <div class="fund-card-status">
+            <span class="fund-card-paid">{{ r.paid_amount | clp }}</span>
+            {% if r.state == 'pagado' %}<span class="badge fund-badge-paid fund-badge-icon" title="Pagado" aria-label="Pagado">✓</span>
+            {% elif r.state == 'parcial' %}<span class="badge fund-badge-partial">Parcial</span>
+            {% elif r.state == 'excedido' %}<span class="badge fund-badge-over fund-badge-icon" title="Excedido" aria-label="Excedido">⚠</span>
+            {% else %}<span class="badge fund-badge-pending">Pendiente</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
       </div>
-      <form class="fund-budget-form" hx-post="/fund/budget" hx-target="#overview"
-            hx-swap="innerHTML" hx-trigger="change from:input[name='amount']">
-        <input type="hidden" name="month" value="{{ month }}">
-        <input type="hidden" name="category_id" value="{{ r.category_id }}">
-        <label class="fund-budget-label">Presupuesto
-          <span class="fund-input"><span class="peso">$</span>
-            <input type="number" name="amount" min="0" step="1000"
-                   value="{{ r.budget_amount | round | int }}">
-          </span>
-        </label>
-      </form>
-      <div class="fund-card-bar">
-        <div class="fund-card-bar-fill" style="width: {{ r.bar_width }}%;"></div>
-      </div>
-      <div class="fund-card-status">
-        <span class="fund-card-paid">{{ r.paid_amount | clp }}</span>
-        {% if r.state == 'pagado' %}<span class="badge fund-badge-paid fund-badge-icon" title="Pagado" aria-label="Pagado">✓</span>
-        {% elif r.state == 'parcial' %}<span class="badge fund-badge-partial">Parcial</span>
-        {% elif r.state == 'excedido' %}<span class="badge fund-badge-over fund-badge-icon" title="Excedido" aria-label="Excedido">⚠</span>
-        {% else %}<span class="badge fund-badge-pending">Pendiente</span>{% endif %}
-      </div>
-    </div>
-    {% endfor %}
+    </article>
   </div>
-</article>
+  <div class="fund-face fund-back" id="fund-back"></div>
+</div>
