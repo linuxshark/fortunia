@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from queries import fund_card_state  # noqa: E402
+from queries import fund_card_state, next_month  # noqa: E402
 
 
 def test_pendiente_sin_pagos():
@@ -30,3 +30,16 @@ def test_presupuesto_cero_con_pago_es_excedido():
 def test_pct_redondea():
     # 1 de 3 -> 33%
     assert fund_card_state(1, 3) == ("parcial", 33)
+
+
+def test_next_month_mismo_anio():
+    assert next_month("2026-07") == "2026-08"
+
+
+def test_next_month_salto_de_anio():
+    assert next_month("2026-12") == "2027-01"
+
+
+def test_next_month_formato_dos_digitos():
+    assert next_month("2026-01") == "2026-02"
+    assert next_month("2026-09") == "2026-10"

@@ -206,6 +206,14 @@ def _month_date(month: str) -> str:
     return f"{month}-01"
 
 
+def next_month(month: str) -> str:
+    """'YYYY-MM' -> mes siguiente en el mismo formato. Pura, sin DB."""
+    year, mon = (int(p) for p in month.split("-"))
+    if mon == 12:
+        return f"{year + 1}-01"
+    return f"{year}-{mon + 1:02d}"
+
+
 def fund_card_state(paid: float, budget: float) -> tuple[str, int]:
     """Estado visual y % consumido de una tarjeta del Fondo, dado pagado y presupuesto.
 
